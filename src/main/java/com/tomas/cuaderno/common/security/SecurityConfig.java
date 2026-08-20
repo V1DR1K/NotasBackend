@@ -27,7 +27,7 @@ public class SecurityConfig {
                 .cors(c -> c.configurationSource(corsConfigurationSource(props)))
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(a -> a.requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/auth/csrf", "/actuator/health").permitAll().anyRequest().authenticated())
+                        .requestMatchers(HttpMethod.GET, "/api/auth/csrf", "/api/actuator/health").permitAll().anyRequest().authenticated())
                 .addFilterBefore(jwt, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
