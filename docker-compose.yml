@@ -1,0 +1,36 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: cuaderno
+      POSTGRES_USER: cuaderno
+      POSTGRES_PASSWORD: cuaderno
+    ports: ["5432:5432"]
+    volumes: [cuaderno-postgres:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cuaderno -d cuaderno"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  app:
+    build: .
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/cuaderno
+      SPRING_DATASOURCE_USERNAME: cuaderno
+      SPRING_DATASOURCE_PASSWORD: cuaderno
+      JWT_SECRET: change-this-in-production-to-a-random-secret
+      FILE_STORAGE_ROOT: /var/lib/cuaderno/files
+    ports: ["8080:8080"]
+    volumes: [cuaderno-files:/var/lib/cuaderno/files]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/api/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+volumes:
+  cuaderno-postgres:
+  cuaderno-files:

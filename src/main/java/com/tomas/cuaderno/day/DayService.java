@@ -1,0 +1,30 @@
+package com.tomas.cuaderno.day;
+
+import com.tomas.cuaderno.common.errors.NotFoundException;
+import com.tomas.cuaderno.common.pagination.PageResponse;
+import com.tomas.cuaderno.configuration.*;
+import java.time.*;
+import java.util.UUID;
+import org.springframework.data.domain.*;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service public class DayService {
+    private final DayEntryRepository repository; private final ConfigurationService configuration;
+    public DayService(DayEntryRepository repository, ConfigurationService configuration) { this.repository = repository; this.configuration = configuration; }
+    public PageResponse<DayDtos.Response> list(UUID owner, LocalDate date, LocalDate from, LocalDate to, String statusCode, Pageable pageable) {
+        Specification<DayEntry> spec = (root, query, cb) -> cb.and(cb.equal(root.get("ownerId"), owner), cb.isNull(root.get("deletedAt")));
+        if (date != null) spec = spec.and((r, q, c) -> c.equal(r.get("date"), date));
+        if (from != null) spec = spec.and((r, q, c) -> c.greaterThanOrEqualTo(r.get("date"), from));
+        if (to != null) spec = spec.and((r, q, c) -> c.lessThanOrEqualTo(r.get("date"), to));
+        if (statusCode != null) spec = spec.and((r, q, c) -> c.equal(c.lower(r.get("statusCode")), statusCode.toLowerCase()));
+        return PageResponse.from(repository.findAll(spec, pageable).map(x -> response(owner, x)));
+    }
+    public DayDtos.Response get(UUID owner, UUID id) { return response(owner, repository.findByIdAndOwnerIdAndDeletedAtIsNull(id, owner).orElseThrow(() -> new NotFoundException("Day entry not found"))); }
+    public long count(UUID owner) { return repository.countByOwnerIdAndDeletedAtIsNull(owner); }
+    @Transactional public DayDtos.Response create(UUID owner, DayDtos.CreateRequest request) { configuration.requireActive(owner, ConfigKind.DAY_STATUS, request.statusCode(), "statusCode"); DayEntry item = new DayEntry(); item.setOwnerId(owner); item.setDate(request.date()); item.setStatusCode(request.statusCode().trim()); item.setFeeling(request.feeling().trim()); item.setDescription(request.description().trim()); return response(owner, repository.save(item)); }
+    @Transactional public DayDtos.Response patch(UUID owner, UUID id, DayDtos.PatchRequest request) { DayEntry item = repository.findByIdAndOwnerIdAndDeletedAtIsNull(id, owner).orElseThrow(() -> new NotFoundException("Day entry not found")); if (request.statusCode() != null) { configuration.requireActive(owner, ConfigKind.DAY_STATUS, request.statusCode(), "statusCode"); item.setStatusCode(request.statusCode().trim()); } if (request.date() != null) item.setDate(request.date()); if (request.feeling() != null) { if (request.feeling().isBlank()) throw new com.tomas.cuaderno.common.errors.BadRequestException("feeling cannot be blank"); item.setFeeling(request.feeling().trim()); } if (request.description() != null) { if (request.description().isBlank()) throw new com.tomas.cuaderno.common.errors.BadRequestException("description cannot be blank"); item.setDescription(request.description().trim()); } return response(owner, item); }
+    @Transactional public void delete(UUID owner, UUID id) { DayEntry item = repository.findByIdAndOwnerIdAndDeletedAtIsNull(id, owner).orElseThrow(() -> new NotFoundException("Day entry not found")); item.setDeletedAt(Instant.now()); }
+    private DayDtos.Response response(UUID owner, DayEntry item) { return new DayDtos.Response(item.getId(), item.getDate(), configuration.option(owner, ConfigKind.DAY_STATUS, item.getStatusCode()), item.getFeeling(), item.getDescription(), item.getCreatedAt(), item.getUpdatedAt()); }
+}
