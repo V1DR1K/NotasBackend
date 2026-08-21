@@ -27,5 +27,5 @@ class FinanceServiceTest {
         when(repository.findAll(ArgumentMatchers.<Specification<FinanceMovement>>any(), eq(Pageable.unpaged()))).thenReturn(new PageImpl<>(List.of(movement(owner, FinanceBucket.INCOME, "100"), movement(owner, FinanceBucket.EXPENSE, "20"), movement(owner, FinanceBucket.INVESTED, "30"))));
         assertThat(service.summary(owner, LocalDate.now().minusDays(1), LocalDate.now()).cash().ars()).isEqualByComparingTo("50");
     }
-    private FinanceMovement movement(UUID owner, FinanceBucket bucket, String amount) { FinanceMovement x = new FinanceMovement(); x.setOwnerId(owner); x.setBucket(bucket); x.setAmountArs(new BigDecimal(amount)); x.setDate(LocalDate.now()); x.setConceptCode("concept"); x.setCategoryCode("category"); x.setExchangeRateSnapshot(new BigDecimal("100")); return x; }
+    private FinanceMovement movement(UUID owner, FinanceBucket bucket, String amount) { FinanceMovement x = new FinanceMovement(); x.setOwnerId(owner); x.setBucket(bucket); x.setAmountArs(new BigDecimal(amount)); x.setDate(LocalDate.now()); x.setItemCode("item"); x.setExchangeRateSnapshot(new BigDecimal("100")); return x; }
 }

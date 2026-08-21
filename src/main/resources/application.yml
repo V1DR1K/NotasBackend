@@ -27,7 +27,7 @@ cuaderno:
     secure-cookie: ${JWT_SECURE_COOKIE:false}
     allowed-origins: ${CORS_ALLOWED_ORIGINS:https://notes.neticar.com.ar,http://localhost:3000}
   initial-user:
-    username: ${APP_INITIAL_USER_USERNAME:tomas}
+    username: ${APP_INITIAL_USER_USERNAME:tomas tomas}
     password: ${APP_INITIAL_USER_PASSWORD:tomas}
   files:
     root: ${FILE_STORAGE_ROOT:/var/lib/cuaderno/files}

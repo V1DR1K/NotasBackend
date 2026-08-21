@@ -8,13 +8,17 @@ import org.springframework.transaction.annotation.Transactional;
 import com.tomas.cuaderno.configuration.*;
 
 @Component
-public class UserBootstrap implements CommandLineRunner {
+public class InitialDataSeeder implements CommandLineRunner {
     private final UserRepository users; private final PasswordEncoder encoder; private final ConfigItemRepository config;
     @Value("${cuaderno.initial-user.username}") private String username;
     @Value("${cuaderno.initial-user.password}") private String password;
-    public UserBootstrap(UserRepository users, PasswordEncoder encoder, ConfigItemRepository config) { this.users = users; this.encoder = encoder; this.config = config; }
+    public InitialDataSeeder(UserRepository users, PasswordEncoder encoder, ConfigItemRepository config) { this.users = users; this.encoder = encoder; this.config = config; }
     @Transactional public void run(String... args) {
-        User user = users.findByUsername(username).orElseGet(() -> { User created = new User(); created.setUsername(username); created.setPasswordHash(encoder.encode(password)); created.setRole("ADMIN"); return users.save(created); });
+        User user = users.findByUsername(username).orElseGet(() -> {
+            if ("tomas tomas".equals(username)) return users.findByUsername("tomas").map(legacy -> { legacy.setUsername(username); return users.save(legacy); }).orElse(null);
+            return null;
+        });
+        if (user == null) { user = new User(); user.setUsername(username); user.setPasswordHash(encoder.encode(password)); user.setRole("ADMIN"); user = users.save(user); }
         seed(user.getId());
     }
     private void seed(java.util.UUID owner) {
@@ -29,24 +33,14 @@ public class UserBootstrap implements CommandLineRunner {
         option(owner, ConfigKind.DAY_FEELING, "enfocado", "Enfocado", null, 5, true);
         option(owner, ConfigKind.DAY_FEELING, "abrumado", "Abrumado", null, 6, true);
         option(owner, ConfigKind.DAY_FEELING, "motivado", "Motivado", null, 7, true);
-        option(owner, ConfigKind.FINANCE_CONCEPT, "monthly_payment", "Pago mensual", null, 0, true);
-        option(owner, ConfigKind.FINANCE_CONCEPT, "freelance", "Trabajo freelance", null, 1, true);
-        option(owner, ConfigKind.FINANCE_CONCEPT, "weekly_purchase", "Compra semanal", null, 2, true);
-        option(owner, ConfigKind.FINANCE_CONCEPT, "fuel", "Combustible", null, 3, true);
-        option(owner, ConfigKind.FINANCE_CONCEPT, "usd_purchase", "Compra de dólares", null, 4, true);
-        option(owner, ConfigKind.FINANCE_CONCEPT, "investment_fund", "Fondo de inversión", null, 5, true);
-        option(owner, ConfigKind.FINANCE_CONCEPT, "transfer", "Transferencia", null, 6, true);
-        option(owner, ConfigKind.FINANCE_CONCEPT, "other", "Otro", null, 7, true);
-        option(owner, ConfigKind.FINANCE_CATEGORY, "work", "Trabajo", null, 0, true);
-        option(owner, ConfigKind.FINANCE_CATEGORY, "extra", "Extra", null, 1, true);
-        option(owner, ConfigKind.FINANCE_CATEGORY, "food", "Comida", null, 2, true);
-        option(owner, ConfigKind.FINANCE_CATEGORY, "mobility", "Movilidad", null, 3, true);
-        option(owner, ConfigKind.FINANCE_CATEGORY, "dollars", "Dólares", null, 4, true);
-        option(owner, ConfigKind.FINANCE_CATEGORY, "market", "Mercado", null, 5, true);
-        option(owner, ConfigKind.FINANCE_CATEGORY, "home", "Hogar", null, 6, true);
-        option(owner, ConfigKind.FINANCE_CATEGORY, "leisure", "Ocio", null, 7, true);
-        option(owner, ConfigKind.FINANCE_CATEGORY, "health", "Salud", null, 8, true);
-        option(owner, ConfigKind.FINANCE_CATEGORY, "other", "Otro", null, 9, true);
+        option(owner, ConfigKind.FINANCE_ITEM, "sueldo", "Sueldo", null, 0, true);
+        option(owner, ConfigKind.FINANCE_ITEM, "inversion_pesos", "Inversion Pesos", null, 1, true);
+        option(owner, ConfigKind.FINANCE_ITEM, "inversion_cripto", "Inversion Cripto", null, 2, true);
+        option(owner, ConfigKind.FINANCE_ITEM, "pedidos_ya", "Pedidos Ya", null, 3, true);
+        option(owner, ConfigKind.FINANCE_ITEM, "comida_afuera", "Comida Afuera", null, 4, true);
+        option(owner, ConfigKind.FINANCE_ITEM, "supermercado_golosineria", "Supermercado / Golosineria", null, 5, true);
+        option(owner, ConfigKind.FINANCE_ITEM, "nafta", "Nafta", null, 6, true);
+        option(owner, ConfigKind.FINANCE_ITEM, "uber_didi", "Uber/Didi", null, 7, true);
         option(owner, ConfigKind.NOTE_CATEGORY, "ideas", "Ideas", null, 0, true);
         option(owner, ConfigKind.NOTE_CATEGORY, "personal", "Personal", null, 1, true);
         option(owner, ConfigKind.NOTE_CATEGORY, "work", "Trabajo", null, 2, true);

@@ -40,7 +40,7 @@ public class SearchService {
                 .forEach(note -> results.add(noteResult(note)));
         days.findAll(textSpec(owner, query, "feeling", "description"), PageRequest.of(0, MAX_RESULTS_PER_SECTION, Sort.by(Sort.Direction.DESC, "date")))
                 .forEach(day -> results.add(dayResult(day)));
-        movements.findAll(textSpec(owner, query, "conceptCode", "categoryCode", "note"), PageRequest.of(0, MAX_RESULTS_PER_SECTION, Sort.by(Sort.Direction.DESC, "date")))
+        movements.findAll(textSpec(owner, query, "itemCode", "note"), PageRequest.of(0, MAX_RESULTS_PER_SECTION, Sort.by(Sort.Direction.DESC, "date")))
                 .forEach(movement -> results.add(movementResult(movement)));
         files.findAll(textSpec(owner, query, "name", "extension", "mimeType"), PageRequest.of(0, MAX_RESULTS_PER_SECTION, Sort.by(Sort.Direction.DESC, "createdAt")))
                 .forEach(file -> results.add(fileResult(file)));
@@ -59,6 +59,6 @@ public class SearchService {
 
     private SearchDtos.Result noteResult(Note note) { return new SearchDtos.Result("notes", note.getId(), note.getTitle(), note.getBody(), note.getDate()); }
     private SearchDtos.Result dayResult(DayEntry day) { return new SearchDtos.Result("day", day.getId(), day.getFeeling(), day.getDescription(), day.getDate()); }
-    private SearchDtos.Result movementResult(FinanceMovement movement) { return new SearchDtos.Result("finances", movement.getId(), movement.getConceptCode(), movement.getNote() == null ? movement.getCategoryCode() : movement.getNote(), movement.getDate()); }
+    private SearchDtos.Result movementResult(FinanceMovement movement) { return new SearchDtos.Result("finances", movement.getId(), movement.getItemCode(), movement.getNote(), movement.getDate()); }
     private SearchDtos.Result fileResult(FileMetadata file) { return new SearchDtos.Result("files", file.getId(), file.getName(), file.getMimeType(), file.getUploadedAt().atZone(java.time.ZoneOffset.UTC).toLocalDate()); }
 }
