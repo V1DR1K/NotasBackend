@@ -32,6 +32,6 @@ cuaderno:
   files:
     root: ${FILE_STORAGE_ROOT:/var/lib/cuaderno/files}
   exchange-rate:
-    provider-url: ${EXCHANGE_RATE_PROVIDER_URL:}
+    provider-url: ${EXCHANGE_RATE_PROVIDER_URL:https://dolarapi.com/v1/dolares/blue}
     fallback: ${EXCHANGE_RATE_FALLBACK:1.0}
     timeout-ms: ${EXCHANGE_RATE_TIMEOUT_MS:3000}

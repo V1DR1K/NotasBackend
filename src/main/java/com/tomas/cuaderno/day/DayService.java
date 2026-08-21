@@ -4,6 +4,7 @@ import com.tomas.cuaderno.common.errors.NotFoundException;
 import com.tomas.cuaderno.common.pagination.PageResponse;
 import com.tomas.cuaderno.configuration.*;
 import java.time.*;
+import java.util.List;
 import java.util.UUID;
 import org.springframework.data.domain.*;
 import org.springframework.data.jpa.domain.Specification;
@@ -13,12 +14,16 @@ import org.springframework.transaction.annotation.Transactional;
 @Service public class DayService {
     private final DayEntryRepository repository; private final ConfigurationService configuration;
     public DayService(DayEntryRepository repository, ConfigurationService configuration) { this.repository = repository; this.configuration = configuration; }
-    public PageResponse<DayDtos.Response> list(UUID owner, LocalDate date, LocalDate from, LocalDate to, String statusCode, Pageable pageable) {
+    public PageResponse<DayDtos.Response> list(UUID owner, LocalDate date, LocalDate from, LocalDate to, String statusCode, List<String> feelings, Pageable pageable) {
         Specification<DayEntry> spec = (root, query, cb) -> cb.and(cb.equal(root.get("ownerId"), owner), cb.isNull(root.get("deletedAt")));
         if (date != null) spec = spec.and((r, q, c) -> c.equal(r.get("date"), date));
         if (from != null) spec = spec.and((r, q, c) -> c.greaterThanOrEqualTo(r.get("date"), from));
         if (to != null) spec = spec.and((r, q, c) -> c.lessThanOrEqualTo(r.get("date"), to));
         if (statusCode != null) spec = spec.and((r, q, c) -> c.equal(c.lower(r.get("statusCode")), statusCode.toLowerCase()));
+        if (feelings != null && !feelings.isEmpty()) {
+            var codes = feelings.stream().filter(code -> code != null && !code.isBlank()).map(String::toLowerCase).distinct().toList();
+            if (!codes.isEmpty()) spec = spec.and((r, q, c) -> c.or(codes.stream().map(code -> c.like(c.lower(r.get("feeling")), "%|" + code + "|%")).toArray(jakarta.persistence.criteria.Predicate[]::new)));
+        }
         return PageResponse.from(repository.findAll(spec, pageable).map(x -> response(owner, x)));
     }
     public DayDtos.Response get(UUID owner, UUID id) { return response(owner, repository.findByIdAndOwnerIdAndDeletedAtIsNull(id, owner).orElseThrow(() -> new NotFoundException("Day entry not found"))); }

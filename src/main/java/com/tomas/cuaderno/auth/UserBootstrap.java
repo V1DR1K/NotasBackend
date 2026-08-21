@@ -21,6 +21,14 @@ public class UserBootstrap implements CommandLineRunner {
         option(owner, ConfigKind.DAY_STATUS, "green", "Verde", "🟢", 0, true);
         option(owner, ConfigKind.DAY_STATUS, "yellow", "Amarillo", "🟡", 1, true);
         option(owner, ConfigKind.DAY_STATUS, "red", "Rojo", "🔴", 2, true);
+        option(owner, ConfigKind.DAY_FEELING, "tranquilo", "Tranquilo", null, 0, true);
+        option(owner, ConfigKind.DAY_FEELING, "con_energia", "Con energía", null, 1, true);
+        option(owner, ConfigKind.DAY_FEELING, "cansado", "Cansado", null, 2, true);
+        option(owner, ConfigKind.DAY_FEELING, "ansioso", "Ansioso", null, 3, true);
+        option(owner, ConfigKind.DAY_FEELING, "contento", "Contento", null, 4, true);
+        option(owner, ConfigKind.DAY_FEELING, "enfocado", "Enfocado", null, 5, true);
+        option(owner, ConfigKind.DAY_FEELING, "abrumado", "Abrumado", null, 6, true);
+        option(owner, ConfigKind.DAY_FEELING, "motivado", "Motivado", null, 7, true);
         option(owner, ConfigKind.FINANCE_CONCEPT, "monthly_payment", "Pago mensual", null, 0, true);
         option(owner, ConfigKind.FINANCE_CONCEPT, "freelance", "Trabajo freelance", null, 1, true);
         option(owner, ConfigKind.FINANCE_CONCEPT, "weekly_purchase", "Compra semanal", null, 2, true);
