@@ -1,0 +1,68 @@
+package com.tomas.cuaderno.auth;
+
+import com.tomas.cuaderno.common.errors.BadRequestException;
+import java.util.UUID;
+import org.springframework.http.HttpHeaders;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
+
+@Service
+public class CentralAuthClient {
+    private final RestClient client;
+
+    public CentralAuthClient(AuthProperties properties) {
+        if (properties.getServiceUrl() == null || properties.getServiceUrl().isBlank()) throw new IllegalStateException("AUTH_SERVICE_URL is required");
+        client = RestClient.builder().baseUrl(properties.getServiceUrl().replaceAll("/$", "")).build();
+    }
+
+    public TokenResponse login(String username, String password) {
+        try {
+            return client.post().uri("/api/login").body(new Credentials(username, password)).retrieve().body(TokenResponse.class);
+        } catch (RestClientResponseException ex) {
+            throw new org.springframework.security.authentication.BadCredentialsException("Central authentication failed");
+        }
+    }
+
+    public TokenResponse refresh(String refreshToken) {
+        try {
+            return client.post().uri("/api/refresh").body(new RefreshRequest(refreshToken)).retrieve().body(TokenResponse.class);
+        } catch (RestClientResponseException ex) {
+            throw new org.springframework.security.authentication.BadCredentialsException("Central refresh failed");
+        }
+    }
+
+    public void logout(String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank()) return;
+        try {
+            client.post().uri("/api/logout").body(new RefreshRequest(refreshToken)).retrieve().toBodilessEntity();
+        } catch (RuntimeException ignored) {
+            // Local cookies are cleared even when the central token is already expired.
+        }
+    }
+
+    public CentralUser me(String accessToken) {
+        try {
+            return client.get().uri("/api/me").header(HttpHeaders.AUTHORIZATION, bearer(accessToken)).retrieve().body(CentralUser.class);
+        } catch (RestClientResponseException ex) {
+            throw new org.springframework.security.authentication.BadCredentialsException("Central session is invalid");
+        }
+    }
+
+    public void changePassword(String accessToken, String currentPassword, String newPassword) {
+        try {
+            client.post().uri("/api/change-password").header(HttpHeaders.AUTHORIZATION, bearer(accessToken))
+                    .body(new ChangePasswordRequest(currentPassword, newPassword)).retrieve().toBodilessEntity();
+        } catch (RestClientResponseException ex) {
+            throw new BadRequestException("No se pudo cambiar la contraseña");
+        }
+    }
+
+    private String bearer(String token) { return "Bearer " + token; }
+
+    public record Credentials(String username, String password) {}
+    public record RefreshRequest(String refreshToken) {}
+    public record ChangePasswordRequest(String currentPassword, String newPassword) {}
+    public record CentralUser(UUID id, String username, boolean mustChangePassword) {}
+    public record TokenResponse(String accessToken, String refreshToken, String tokenType, long expiresIn, CentralUser user) {}
+}

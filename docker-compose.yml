@@ -18,7 +18,9 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/cuaderno
       SPRING_DATASOURCE_USERNAME: cuaderno
       SPRING_DATASOURCE_PASSWORD: cuaderno
-      JWT_SECRET: change-this-in-production-to-a-random-secret
+      AUTH_SERVICE_URL: ${AUTH_SERVICE_URL:-http://auth-service:8080}
+      AUTH_PUBLIC_KEY_PEM: ${AUTH_PUBLIC_KEY_PEM:?AUTH_PUBLIC_KEY_PEM is required}
+      AUTH_DEFAULT_ROLE: ${AUTH_DEFAULT_ROLE:-USER}
       FILE_STORAGE_ROOT: /var/lib/cuaderno/files
     ports: ["8080:8080"]
     volumes: [cuaderno-files:/var/lib/cuaderno/files]

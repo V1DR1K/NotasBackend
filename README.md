@@ -1,6 +1,6 @@
 # NotasBackend
 
-Backend inicial de Cuaderno. Java 21, Spring Boot 3.5.5, Maven, PostgreSQL 17, Flyway, JPA, Validation, Security, JWT y Actuator.
+Backend inicial de Cuaderno. Java 21, Spring Boot 3.5.5, Maven, PostgreSQL 17, Flyway, JPA, Validation, Security, central Auth, JWT y Actuator.
 
 ## Ejecucion local
 
@@ -8,11 +8,11 @@ Backend inicial de Cuaderno. Java 21, Spring Boot 3.5.5, Maven, PostgreSQL 17, F
 docker compose up --build
 curl -c cookies.txt http://localhost:8080/api/auth/csrf
 curl -c cookies.txt -b cookies.txt -H 'Content-Type: application/json' \
-  -d '{"username":"tomas","password":"tomas"}' \
+  -d '{"username":"central-user","password":"central-password"}' \
   http://localhost:8080/api/auth/login
 ```
 
-El login emite el JWT en una cookie `HttpOnly`, `SameSite=Lax`. El token nunca se devuelve como JSON ni se guarda en `localStorage`. Las operaciones que cambian datos requieren el valor `token` de `GET /api/auth/csrf` en el header `X-XSRF-TOKEN`. En produccion configurar `JWT_SECURE_COOKIE=true` y servir detras de HTTPS.
+El login delega en Auth central y emite el access JWT central en una cookie `HttpOnly`, `SameSite=Lax`; el refresh token usa otra cookie `HttpOnly`. Los tokens nunca se devuelven al navegador como JSON ni se guardan en `localStorage`. Las operaciones que cambian datos requieren el valor `token` de `GET /api/auth/csrf` en el header `X-XSRF-TOKEN`. En produccion configurar `JWT_SECURE_COOKIE=true` y servir detras de HTTPS.
 
 Health: `GET /api/actuator/health`.
 
@@ -22,7 +22,7 @@ Todos los endpoints de negocio usan `/api`, sin versionado `/api/v1`.
 
 Los listados paginados responden exactamente `content`, `page`, `size`, `totalElements`, `totalPages`, `first` y `last`.
 
-Auth: `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, `GET /api/auth/csrf`.
+Auth: `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`, `GET /api/auth/me`, `POST /api/auth/change-password`, `GET /api/auth/csrf`.
 
 Configuracion: `GET/POST /api/config/day-statuses`, `PATCH/DELETE /api/config/day-statuses/{code}`; los mismos verbos y forma para `finance-concepts`, `finance-categories` y `note-categories`. Las modificaciones requieren ADMIN. La respuesta comun es `ConfigOptionResponse(code,label,emoji,sortOrder,active)` y PATCH es parcial, sin posibilidad de cambiar `code`. Los defaults iniciales del usuario son statuses `green`, `yellow`, `red`; conceptos `monthly_payment`, `freelance`, `weekly_purchase`, `fuel`, `usd_purchase`, `investment_fund`, `transfer`, `other`; categorias financieras `work`, `extra`, `food`, `mobility`, `dollars`, `market`, `home`, `leisure`, `health`, `other`; y categorias de notas `ideas`, `personal`, `work`.
 
@@ -60,9 +60,9 @@ Dashboard: `GET /api/dashboard`, con `dayEntriesCount`, `notesCount`, `filesCoun
 
 ## Configuracion
 
-Variables principales: `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`, `JWT_SECRET` (minimo 32 bytes), `JWT_EXPIRATION`, `JWT_SECURE_COOKIE`, `CORS_ALLOWED_ORIGINS`, `APP_INITIAL_USER_USERNAME`, `APP_INITIAL_USER_PASSWORD`, `FILE_STORAGE_ROOT`, `FILE_MAX_SIZE`, `EXCHANGE_RATE_PROVIDER_URL` y `EXCHANGE_RATE_FALLBACK`.
+Variables principales: `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`, `AUTH_SERVICE_URL`, `AUTH_PUBLIC_KEY_PEM`, `AUTH_DEFAULT_ROLE`, `JWT_SECURE_COOKIE`, `CORS_ALLOWED_ORIGINS`, `FILE_STORAGE_ROOT`, `FILE_MAX_SIZE`, `EXCHANGE_RATE_PROVIDER_URL` y `EXCHANGE_RATE_FALLBACK`.
 
-El usuario inicial se crea solo si el username no existe y siempre con rol ADMIN. Los defaults locales parametrizados son `tomas`/`tomas`; no se actualiza una contraseña existente al reiniciar. `EXCHANGE_RATE_TIMEOUT_MS` limita el proveedor externo (3000 ms por defecto), y el fallback persistido/configurado evita bloquear altas.
+Los usuarios locales se aprovisionan de forma idempotente al iniciar sesión en Auth central. La migración conserva el UUID local y todos sus datos, y agrega el UUID central en `auth_user_id`; los hashes locales existentes ya no participan de la autenticación. El seeder solo crea opciones para usuarios ya mapeados y no crea credenciales. `EXCHANGE_RATE_TIMEOUT_MS` limita el proveedor externo (3000 ms por defecto), y el fallback persistido/configurado evita bloquear altas.
 
 Los archivos se guardan fuera de PostgreSQL bajo `FILE_STORAGE_ROOT` (default `/var/lib/cuaderno/files`), nunca como Base64. Las claves de storage son UUID, las rutas se normalizan contra la raiz y el borrado es logico. V1 incluye la tabla `audit_events`; esta versión no afirma auditoría avanzada ni genera eventos todavía.
 

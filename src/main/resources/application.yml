@@ -20,15 +20,16 @@ management:
   endpoints.web.base-path: /api/actuator
   endpoints.web.exposure.include: health,info
 cuaderno:
+  auth:
+    service-url: ${AUTH_SERVICE_URL:http://localhost:8081}
+    public-key-pem: ${AUTH_PUBLIC_KEY_PEM:}
+    default-role: ${AUTH_DEFAULT_ROLE:USER}
+    refresh-cookie-name: ${AUTH_REFRESH_COOKIE_NAME:CUADERNO_REFRESH}
+    refresh-cookie-max-age: ${AUTH_REFRESH_COOKIE_MAX_AGE:P30D}
   security:
-    jwt-secret: ${JWT_SECRET:local-development-secret-change-me-at-least-32-characters}
-    expiration: ${JWT_EXPIRATION:PT8H}
     cookie-name: ${JWT_COOKIE_NAME:CUADERNO_AUTH}
     secure-cookie: ${JWT_SECURE_COOKIE:false}
     allowed-origins: ${CORS_ALLOWED_ORIGINS:https://notes.neticar.com.ar,http://localhost:3000}
-  initial-user:
-    username: ${APP_INITIAL_USER_USERNAME:tomas tomas}
-    password: ${APP_INITIAL_USER_PASSWORD:tomas}
   files:
     root: ${FILE_STORAGE_ROOT:/var/lib/cuaderno/files}
   exchange-rate:

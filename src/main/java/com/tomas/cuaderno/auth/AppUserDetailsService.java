@@ -11,8 +11,8 @@ public class AppUserDetailsService implements UserDetailsService {
     public AppUserDetailsService(UserRepository repository) { this.repository = repository; }
     public UserDetails loadUserByUsername(String username) {
         User user;
-        try { user = repository.findById(UUID.fromString(username)).orElseThrow(() -> new UsernameNotFoundException("User not found")); }
-        catch (IllegalArgumentException ex) { user = repository.findByUsername(username).orElseThrow(() -> new UsernameNotFoundException("User not found")); }
+        try { user = repository.findByAuthUserId(UUID.fromString(username)).orElseThrow(() -> new UsernameNotFoundException("User not found")); }
+        catch (IllegalArgumentException ex) { throw new UsernameNotFoundException("Invalid central user id", ex); }
         return new AppPrincipal(user.getId(), user.getUsername(), user.getPasswordHash(), user.getRole(), user.isEnabled());
     }
 }

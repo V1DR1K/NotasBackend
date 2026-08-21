@@ -1,29 +1,33 @@
 package com.tomas.cuaderno.common.security;
 
 import io.jsonwebtoken.*;
-import io.jsonwebtoken.security.Keys;
-import java.nio.charset.StandardCharsets;
-import java.security.Key;
-import java.time.Instant;
-import java.util.Date;
+import java.security.KeyFactory;
+import java.security.PublicKey;
+import java.security.spec.X509EncodedKeySpec;
+import java.util.Base64;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
+import com.tomas.cuaderno.auth.AuthProperties;
 
 @Service
 public class JwtService {
-    private final SecurityProperties properties;
-    private final Key key;
-    public JwtService(SecurityProperties properties) {
-        this.properties = properties;
-        if (properties.getJwtSecret() == null || properties.getJwtSecret().getBytes(StandardCharsets.UTF_8).length < 32) throw new IllegalStateException("JWT_SECRET must be at least 32 bytes");
-        key = Keys.hmacShaKeyFor(properties.getJwtSecret().getBytes(StandardCharsets.UTF_8));
-    }
-    public String create(AppPrincipal principal) {
-        Instant now = Instant.now();
-        return Jwts.builder().subject(principal.id().toString()).claim("username", principal.username()).claim("role", principal.role())
-                .issuedAt(Date.from(now)).expiration(Date.from(now.plus(properties.getExpiration()))).signWith(key).compact();
-    }
+    private final PublicKey key;
+    public JwtService(AuthProperties properties) { key = readPublicKey(properties.getPublicKeyPem()); }
     public UUID subject(String token) {
-        return UUID.fromString(Jwts.parser().verifyWith((javax.crypto.SecretKey) key).build().parseSignedClaims(token).getPayload().getSubject());
+        var claims = Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload();
+        String subject = claims.getSubject();
+        if (subject != null) {
+            try { return UUID.fromString(subject); } catch (IllegalArgumentException ignored) { /* Try the central UUID claim below. */ }
+        }
+        // Older central tokens identify the username in sub and carry the UUID in uid.
+        try { return UUID.fromString(claims.get("uid", String.class)); }
+        catch (IllegalArgumentException | NullPointerException ignored) { throw new MalformedJwtException("Central JWT subject must be a UUID"); }
+    }
+    private PublicKey readPublicKey(String pem) {
+        if (pem == null || pem.isBlank()) throw new IllegalStateException("AUTH_PUBLIC_KEY_PEM is required");
+        try {
+            String value = pem.replace("-----BEGIN PUBLIC KEY-----", "").replace("-----END PUBLIC KEY-----", "").replaceAll("\\s", "");
+            return KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(Base64.getDecoder().decode(value)));
+        } catch (Exception ex) { throw new IllegalStateException("AUTH_PUBLIC_KEY_PEM is not a valid RSA public key", ex); }
     }
 }
