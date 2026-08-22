@@ -23,9 +23,11 @@ class FinanceServiceTest {
     @Test void summaryUsesIncomeMinusExpenseMinusInvestedCashRule() {
         UUID owner = UUID.randomUUID(); FinanceService service = new FinanceService(repository, rates, configuration);
         when(rates.usd(owner)).thenReturn(new FinanceDtos.ExchangeRateResponse("USD", new BigDecimal("99"), new BigDecimal("101"), new BigDecimal("100"), java.time.Instant.now(), "test"));
-        when(configuration.option(any(), any(), anyString())).thenReturn(new ConfigurationDtos.ConfigOptionResponse("code", "Label", null, 0, true));
-        when(repository.findAll(ArgumentMatchers.<Specification<FinanceMovement>>any(), eq(Pageable.unpaged()))).thenReturn(new PageImpl<>(List.of(movement(owner, FinanceBucket.INCOME, "100"), movement(owner, FinanceBucket.EXPENSE, "20"), movement(owner, FinanceBucket.INVESTED, "30"))));
+        FinanceMovementRepository.SummaryRow income = row(FinanceBucket.INCOME, "100");
+        FinanceMovementRepository.SummaryRow expense = row(FinanceBucket.EXPENSE, "20");
+        FinanceMovementRepository.SummaryRow invested = row(FinanceBucket.INVESTED, "30");
+        when(repository.summarize(eq(owner), any(LocalDate.class), any(LocalDate.class))).thenReturn(List.of(income, expense, invested));
         assertThat(service.summary(owner, LocalDate.now().minusDays(1), LocalDate.now()).cash().ars()).isEqualByComparingTo("50");
     }
-    private FinanceMovement movement(UUID owner, FinanceBucket bucket, String amount) { FinanceMovement x = new FinanceMovement(); x.setOwnerId(owner); x.setBucket(bucket); x.setAmountArs(new BigDecimal(amount)); x.setDate(LocalDate.now()); x.setItemCode("item"); x.setExchangeRateSnapshot(new BigDecimal("100")); return x; }
+    private FinanceMovementRepository.SummaryRow row(FinanceBucket bucket, String amount) { FinanceMovementRepository.SummaryRow row = mock(FinanceMovementRepository.SummaryRow.class); when(row.getBucket()).thenReturn(bucket); when(row.getTotal()).thenReturn(new BigDecimal(amount)); return row; }
 }

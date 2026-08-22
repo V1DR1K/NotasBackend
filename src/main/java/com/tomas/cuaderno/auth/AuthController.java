@@ -36,9 +36,12 @@ public class AuthController {
 
     @PostMapping("/logout")
     public void logout(HttpServletRequest request, HttpServletResponse response) {
-        central.logout(cookie(request, authProperties.getRefreshCookieName()));
-        clearCookie(response, securityProperties.getCookieName());
-        clearCookie(response, authProperties.getRefreshCookieName());
+        try {
+            central.logout(cookie(request, authProperties.getRefreshCookieName()));
+        } finally {
+            clearCookie(response, securityProperties.getCookieName());
+            clearCookie(response, authProperties.getRefreshCookieName());
+        }
     }
 
     @GetMapping("/me")

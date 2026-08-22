@@ -5,7 +5,7 @@ services:
       POSTGRES_DB: cuaderno
       POSTGRES_USER: cuaderno
       POSTGRES_PASSWORD: cuaderno
-    ports: ["5432:5432"]
+    ports: ["127.0.0.1:5432:5432"]
     volumes: [cuaderno-postgres:/var/lib/postgresql/data]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U cuaderno -d cuaderno"]
@@ -20,9 +20,12 @@ services:
       SPRING_DATASOURCE_PASSWORD: cuaderno
       AUTH_SERVICE_URL: ${AUTH_SERVICE_URL:-http://auth-service:8080}
       AUTH_PUBLIC_KEY_PEM: ${AUTH_PUBLIC_KEY_PEM:?AUTH_PUBLIC_KEY_PEM is required}
+      AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER:-central-auth-service}
+      AUTH_JWT_AUDIENCE: ${AUTH_JWT_AUDIENCE:-}
       AUTH_DEFAULT_ROLE: ${AUTH_DEFAULT_ROLE:-USER}
+      JWT_SECURE_COOKIE: ${JWT_SECURE_COOKIE:-false}
       FILE_STORAGE_ROOT: /var/lib/cuaderno/files
-    ports: ["8080:8080"]
+    ports: ["127.0.0.1:8080:8080"]
     volumes: [cuaderno-files:/var/lib/cuaderno/files]
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8080/api/actuator/health"]

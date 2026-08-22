@@ -6,6 +6,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 
 @Service
 public class CentralAuthClient {
@@ -13,7 +14,10 @@ public class CentralAuthClient {
 
     public CentralAuthClient(AuthProperties properties) {
         if (properties.getServiceUrl() == null || properties.getServiceUrl().isBlank()) throw new IllegalStateException("AUTH_SERVICE_URL is required");
-        client = RestClient.builder().baseUrl(properties.getServiceUrl().replaceAll("/$", "")).build();
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(properties.getClientTimeoutMs());
+        factory.setReadTimeout(properties.getClientTimeoutMs());
+        client = RestClient.builder().requestFactory(factory).baseUrl(properties.getServiceUrl().replaceAll("/$", "")).build();
     }
 
     public TokenResponse login(String username, String password) {
@@ -36,8 +40,8 @@ public class CentralAuthClient {
         if (refreshToken == null || refreshToken.isBlank()) return;
         try {
             client.post().uri("/api/logout").body(new RefreshRequest(refreshToken)).retrieve().toBodilessEntity();
-        } catch (RuntimeException ignored) {
-            // Local cookies are cleared even when the central token is already expired.
+        } catch (RuntimeException ex) {
+            throw new BadRequestException("No se pudo cerrar la sesión");
         }
     }
 

@@ -27,6 +27,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             try {
                 UUID id = jwtService.subject(token);
                 AppPrincipal principal = (AppPrincipal) users.loadUserByUsername(id.toString());
+                if (!principal.isEnabled()) throw new org.springframework.security.authentication.DisabledException("User is disabled");
                 var authentication = new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);

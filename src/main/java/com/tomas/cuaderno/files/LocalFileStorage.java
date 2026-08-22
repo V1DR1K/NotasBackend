@@ -24,6 +24,7 @@ public class LocalFileStorage implements FileStorage {
         String type = detectedType == null ? Files.probeContentType(destination) : detectedType; return new StoredFile(size, hex(digest.digest()), type == null ? "application/octet-stream" : type);
     }
     public Resource load(UUID key) { try { return new FileSystemResource(safe(key)); } catch (RuntimeException e) { throw e; } }
+    @Override public void delete(UUID key) throws IOException { Files.deleteIfExists(safe(key)); }
     private Path safe(UUID key) { Path path = root.resolve(key.toString()).normalize(); if (!path.startsWith(root)) throw new IllegalArgumentException("Invalid storage key"); return path; }
     private String hex(byte[] bytes) { StringBuilder result = new StringBuilder(); for (byte b : bytes) result.append(String.format("%02x", b)); return result.toString(); }
 }

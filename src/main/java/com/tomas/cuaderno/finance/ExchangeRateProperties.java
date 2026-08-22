@@ -8,7 +8,9 @@ public class ExchangeRateProperties {
     private String providerUrl;
     private BigDecimal fallback = BigDecimal.ONE;
     private int timeoutMs = 3000;
+    private long cacheTtlMs = 30000;
     public String getProviderUrl() { return providerUrl; } public void setProviderUrl(String v) { providerUrl = v; }
     public BigDecimal getFallback() { return fallback; } public void setFallback(BigDecimal v) { fallback = v; }
     public int getTimeoutMs() { return timeoutMs; } public void setTimeoutMs(int v) { timeoutMs = v; }
+    public long getCacheTtlMs() { return cacheTtlMs; } public void setCacheTtlMs(long v) { cacheTtlMs = v; }
 }

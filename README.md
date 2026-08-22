@@ -7,12 +7,14 @@ Backend inicial de Cuaderno. Java 21, Spring Boot 3.5.5, Maven, PostgreSQL 17, F
 ```bash
 docker compose up --build
 curl -c cookies.txt http://localhost:8080/api/auth/csrf
+csrf=$(awk '$6 == "XSRF-TOKEN" {print $7}' cookies.txt)
 curl -c cookies.txt -b cookies.txt -H 'Content-Type: application/json' \
+  -H "X-XSRF-TOKEN: $csrf" \
   -d '{"username":"central-user","password":"central-password"}' \
   http://localhost:8080/api/auth/login
 ```
 
-El login delega en Auth central y emite el access JWT central en una cookie `HttpOnly`, `SameSite=Lax`; el refresh token usa otra cookie `HttpOnly`. Los tokens nunca se devuelven al navegador como JSON ni se guardan en `localStorage`. Las operaciones que cambian datos requieren el valor `token` de `GET /api/auth/csrf` en el header `X-XSRF-TOKEN`. En produccion configurar `JWT_SECURE_COOKIE=true` y servir detras de HTTPS.
+El login delega en Auth central y emite el access JWT central en una cookie `HttpOnly`, `SameSite=Lax`; el refresh token usa otra cookie `HttpOnly`. Los tokens nunca se devuelven al navegador como JSON ni se guardan en `localStorage`. Las operaciones que cambian datos, incluido login, requieren el valor `token` de `GET /api/auth/csrf` en el header `X-XSRF-TOKEN`. El Compose local desactiva `Secure` explícitamente para HTTP; en producción `JWT_SECURE_COOKIE=true` es obligatorio detrás de HTTPS.
 
 Health: `GET /api/actuator/health`.
 
@@ -60,7 +62,7 @@ Dashboard: `GET /api/dashboard`, con `dayEntriesCount`, `notesCount`, `filesCoun
 
 ## Configuracion
 
-Variables principales: `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`, `AUTH_SERVICE_URL`, `AUTH_PUBLIC_KEY_PEM`, `AUTH_DEFAULT_ROLE`, `JWT_SECURE_COOKIE`, `CORS_ALLOWED_ORIGINS`, `FILE_STORAGE_ROOT`, `FILE_MAX_SIZE`, `EXCHANGE_RATE_PROVIDER_URL` y `EXCHANGE_RATE_FALLBACK`.
+Variables principales: `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD`, `AUTH_SERVICE_URL`, `AUTH_PUBLIC_KEY_PEM`, `AUTH_JWT_ISSUER`, `AUTH_JWT_AUDIENCE`, `AUTH_CLIENT_TIMEOUT_MS`, `AUTH_DEFAULT_ROLE`, `JWT_SECURE_COOKIE`, `CORS_ALLOWED_ORIGINS`, `FILE_STORAGE_ROOT`, `FILE_MAX_SIZE`, `FILE_MAX_USER_BYTES`, `EXCHANGE_RATE_PROVIDER_URL`, `EXCHANGE_RATE_FALLBACK` y `EXCHANGE_RATE_CACHE_TTL_MS`.
 
 Los usuarios locales se aprovisionan de forma idempotente al iniciar sesión en Auth central. La migración conserva el UUID local y todos sus datos, y agrega el UUID central en `auth_user_id`; los hashes locales existentes ya no participan de la autenticación. El seeder solo crea opciones para usuarios ya mapeados y no crea credenciales. `EXCHANGE_RATE_TIMEOUT_MS` limita el proveedor externo (3000 ms por defecto), y el fallback persistido/configurado evita bloquear altas.
 

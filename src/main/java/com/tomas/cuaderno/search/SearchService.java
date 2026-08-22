@@ -15,10 +15,12 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import com.tomas.cuaderno.common.errors.BadRequestException;
 
 @Service
 public class SearchService {
     private static final int MAX_RESULTS_PER_SECTION = 5;
+    private static final int MAX_QUERY_LENGTH = 120;
     private final NoteRepository notes;
     private final DayEntryRepository days;
     private final FinanceMovementRepository movements;
@@ -34,6 +36,7 @@ public class SearchService {
     public List<SearchDtos.Result> search(UUID owner, String rawQuery) {
         String query = rawQuery == null ? "" : rawQuery.trim().toLowerCase();
         if (query.length() < 2) return List.of();
+        if (query.length() > MAX_QUERY_LENGTH) throw new BadRequestException("Search query is too long");
         var results = new ArrayList<SearchDtos.Result>();
 
         notes.findAll(textSpec(owner, query, "title", "body", "categoryCode"), PageRequest.of(0, MAX_RESULTS_PER_SECTION, Sort.by(Sort.Direction.DESC, "date")))
@@ -48,11 +51,12 @@ public class SearchService {
     }
 
     private <T> Specification<T> textSpec(UUID owner, String query, String... fields) {
-        String pattern = "%" + query + "%";
+        String escaped = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+        String pattern = "%" + escaped + "%";
         return (root, criteriaQuery, cb) -> {
             var ownerPredicate = cb.and(cb.equal(root.get("ownerId"), owner), cb.isNull(root.get("deletedAt")));
             var textPredicates = new jakarta.persistence.criteria.Predicate[fields.length];
-            for (int index = 0; index < fields.length; index++) textPredicates[index] = cb.like(cb.lower(root.get(fields[index]).as(String.class)), pattern);
+            for (int index = 0; index < fields.length; index++) textPredicates[index] = cb.like(cb.lower(root.get(fields[index]).as(String.class)), pattern, '\\');
             return cb.and(ownerPredicate, cb.or(textPredicates));
         };
     }

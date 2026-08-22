@@ -3,6 +3,7 @@ package com.tomas.cuaderno.files;
 import java.util.*;
 import org.springframework.data.domain.*;
 import org.springframework.data.jpa.repository.*;
+import org.springframework.data.repository.query.Param;
 
 public interface FileMetadataRepository extends JpaRepository<FileMetadata, UUID>, JpaSpecificationExecutor<FileMetadata> {
     Page<FileMetadata> findByOwnerIdAndDeletedAtIsNull(UUID owner, Pageable page);
@@ -12,4 +13,6 @@ public interface FileMetadataRepository extends JpaRepository<FileMetadata, UUID
     Optional<FileMetadata> findByIdAndOwnerIdAndDeletedAtIsNull(UUID id, UUID owner);
     long countByOwnerIdAndFolderIdAndDeletedAtIsNull(UUID owner, UUID folder);
     long countByOwnerIdAndDeletedAtIsNull(UUID owner);
+    @Query("select coalesce(sum(f.sizeBytes), 0) from FileMetadata f where f.ownerId = :owner and f.deletedAt is null")
+    long sumSizeByOwnerIdAndDeletedAtIsNull(@Param("owner") UUID owner);
 }

@@ -8,5 +8,6 @@ import org.springframework.core.io.Resource;
 public interface FileStorage {
     StoredFile store(UUID key, InputStream content) throws IOException;
     Resource load(UUID key);
+    void delete(UUID key) throws IOException;
     record StoredFile(long size, String checksum, String contentType) {}
 }

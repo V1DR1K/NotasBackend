@@ -12,9 +12,18 @@ import com.tomas.cuaderno.auth.AuthProperties;
 @Service
 public class JwtService {
     private final PublicKey key;
-    public JwtService(AuthProperties properties) { key = readPublicKey(properties.getPublicKeyPem()); }
+    private final String issuer;
+    private final String audience;
+    public JwtService(AuthProperties properties) {
+        key = readPublicKey(properties.getPublicKeyPem());
+        issuer = require(properties.getIssuer(), "AUTH_JWT_ISSUER");
+        audience = properties.getAudience() == null ? "" : properties.getAudience().trim();
+    }
     public UUID subject(String token) {
-        var claims = Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload();
+        var parser = Jwts.parser().verifyWith(key).requireIssuer(issuer);
+        if (!audience.isBlank()) parser.requireAudience(audience);
+        var claims = parser.build().parseSignedClaims(token).getPayload();
+        if (claims.getExpiration() == null) throw new MalformedJwtException("Central JWT expiration is required");
         String subject = claims.getSubject();
         if (subject != null) {
             try { return UUID.fromString(subject); } catch (IllegalArgumentException ignored) { /* Try the central UUID claim below. */ }
@@ -22,6 +31,10 @@ public class JwtService {
         // Older central tokens identify the username in sub and carry the UUID in uid.
         try { return UUID.fromString(claims.get("uid", String.class)); }
         catch (IllegalArgumentException | NullPointerException ignored) { throw new MalformedJwtException("Central JWT subject must be a UUID"); }
+    }
+    private String require(String value, String name) {
+        if (value == null || value.isBlank()) throw new IllegalStateException(name + " is required");
+        return value.trim();
     }
     private PublicKey readPublicKey(String pem) {
         if (pem == null || pem.isBlank()) throw new IllegalStateException("AUTH_PUBLIC_KEY_PEM is required");
