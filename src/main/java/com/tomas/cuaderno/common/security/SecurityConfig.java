@@ -20,7 +20,13 @@ public class SecurityConfig {
                 .cors(c -> c.configurationSource(corsConfigurationSource(props)))
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(errors -> errors
-                        .authenticationEntryPoint((request, response, exception) -> response.sendError(HttpServletResponse.SC_UNAUTHORIZED))
+                        .authenticationEntryPoint((request, response, exception) -> {
+                            String path = request.getRequestURI();
+                            String authPath = request.getContextPath() + "/api/auth/";
+                            boolean publicAuthMutation = request.getMethod().equals("POST")
+                                    && (path.equals(authPath + "login") || path.equals(authPath + "refresh") || path.equals(authPath + "logout"));
+                            response.sendError(publicAuthMutation ? HttpServletResponse.SC_FORBIDDEN : HttpServletResponse.SC_UNAUTHORIZED);
+                        })
                         .accessDeniedHandler((request, response, exception) -> response.sendError(HttpServletResponse.SC_FORBIDDEN)))
                 .authorizeHttpRequests(a -> a.requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/refresh", "/api/auth/logout").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/auth/csrf", "/api/actuator/health").permitAll().anyRequest().authenticated())

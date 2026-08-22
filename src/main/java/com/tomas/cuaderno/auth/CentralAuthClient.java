@@ -7,9 +7,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class CentralAuthClient {
+    private static final Logger log = LoggerFactory.getLogger(CentralAuthClient.class);
     private final RestClient client;
 
     public CentralAuthClient(AuthProperties properties) {
@@ -41,7 +44,10 @@ public class CentralAuthClient {
         try {
             client.post().uri("/api/logout").body(new RefreshRequest(refreshToken)).retrieve().toBodilessEntity();
         } catch (RuntimeException ex) {
-            throw new BadRequestException("No se pudo cerrar la sesión");
+            // Logout must remain idempotent: clearing the local cookies is enough
+            // to end this app session even when central revocation is unavailable
+            // or the refresh token has already expired.
+            log.debug("Central logout could not revoke the refresh token", ex);
         }
     }
 
