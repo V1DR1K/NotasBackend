@@ -5,7 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "cuaderno.gemini")
 public class GeminiProperties {
     private String apiKey = "";
-    private String model = "gemini-2.5-flash-lite";
+    private String model = "gemini-flash-lite-latest";
     private int timeoutMs = 10000;
 
     public String getApiKey() { return apiKey; }
