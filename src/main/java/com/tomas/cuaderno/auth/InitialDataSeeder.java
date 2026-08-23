@@ -17,6 +17,9 @@ public class InitialDataSeeder implements CommandLineRunner {
         option(owner, ConfigKind.DAY_STATUS, "green", "Verde", "🟢", 0, true);
         option(owner, ConfigKind.DAY_STATUS, "yellow", "Amarillo", "🟡", 1, true);
         option(owner, ConfigKind.DAY_STATUS, "red", "Rojo", "🔴", 2, true);
+        option(owner, ConfigKind.DAY_STATUS, "green_enjoyed", "En plenitud", "🟢", 3, true);
+        option(owner, ConfigKind.DAY_STATUS, "yellow_mixed", "Día mixto", "🟡", 4, true);
+        option(owner, ConfigKind.DAY_STATUS, "red_care", "Necesito cuidarme", "🔴", 5, true);
         option(owner, ConfigKind.DAY_FEELING, "tranquilo", "Tranquilo", null, 0, true);
         option(owner, ConfigKind.DAY_FEELING, "con_energia", "Con energía", null, 1, true);
         option(owner, ConfigKind.DAY_FEELING, "cansado", "Cansado", null, 2, true);
@@ -25,6 +28,18 @@ public class InitialDataSeeder implements CommandLineRunner {
         option(owner, ConfigKind.DAY_FEELING, "enfocado", "Enfocado", null, 5, true);
         option(owner, ConfigKind.DAY_FEELING, "abrumado", "Abrumado", null, 6, true);
         option(owner, ConfigKind.DAY_FEELING, "motivado", "Motivado", null, 7, true);
+        option(owner, ConfigKind.DAY_FEELING, "agradecido", "Agradecido", null, 8, true);
+        option(owner, ConfigKind.DAY_FEELING, "aliviado", "Aliviado", null, 9, true);
+        option(owner, ConfigKind.DAY_FEELING, "desanimado", "Desanimado", null, 10, true);
+        option(owner, ConfigKind.DAY_FEELING, "estresado", "Estresado", null, 11, true);
+        option(owner, ConfigKind.DAY_FEELING, "frustrado", "Frustrado", null, 12, true);
+        option(owner, ConfigKind.DAY_FEELING, "inspirado", "Inspirado", null, 13, true);
+        option(owner, ConfigKind.DAY_FEELING, "preocupado", "Preocupado", null, 14, true);
+        option(owner, ConfigKind.DAY_FEELING, "triste", "Triste", null, 15, true);
+        option(owner, ConfigKind.DAY_FEELING, "orgulloso", "Orgulloso", null, 16, true);
+        option(owner, ConfigKind.DAY_FEELING, "descansado", "Descansado", null, 17, true);
+        option(owner, ConfigKind.DAY_FEELING, "solo", "Solo", null, 18, true);
+        option(owner, ConfigKind.DAY_FEELING, "sociable", "Sociable", null, 19, true);
         option(owner, ConfigKind.FINANCE_ITEM, "sueldo", "Sueldo", null, 0, true);
         option(owner, ConfigKind.FINANCE_ITEM, "inversion_pesos", "Inversion Pesos", null, 1, true);
         option(owner, ConfigKind.FINANCE_ITEM, "inversion_cripto", "Inversion Cripto", null, 2, true);
@@ -36,6 +51,13 @@ public class InitialDataSeeder implements CommandLineRunner {
         option(owner, ConfigKind.NOTE_CATEGORY, "ideas", "Ideas", null, 0, true);
         option(owner, ConfigKind.NOTE_CATEGORY, "personal", "Personal", null, 1, true);
         option(owner, ConfigKind.NOTE_CATEGORY, "work", "Trabajo", null, 2, true);
+        option(owner, ConfigKind.NOTE_CATEGORY, "projects", "Proyectos", null, 3, true);
+        option(owner, ConfigKind.NOTE_CATEGORY, "goals", "Objetivos", null, 4, true);
+        option(owner, ConfigKind.NOTE_CATEGORY, "health", "Salud", null, 5, true);
+        option(owner, ConfigKind.NOTE_CATEGORY, "learning", "Aprendizajes", null, 6, true);
+        option(owner, ConfigKind.NOTE_CATEGORY, "reminders", "Recordatorios", null, 7, true);
+        option(owner, ConfigKind.NOTE_CATEGORY, "important", "Importante", null, 8, true);
+        option(owner, ConfigKind.NOTE_CATEGORY, "inspiration", "Inspiración", null, 9, true);
     }
     private void option(java.util.UUID owner, ConfigKind kind, String code, String label, String emoji, int order, boolean active) {
         if (config.existsByOwnerIdAndKindAndCodeIgnoreCaseAndDeletedAtIsNull(owner, kind, code)) return;

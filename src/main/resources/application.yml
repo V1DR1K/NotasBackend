@@ -42,3 +42,7 @@ cuaderno:
     fallback: ${EXCHANGE_RATE_FALLBACK:1.0}
     timeout-ms: ${EXCHANGE_RATE_TIMEOUT_MS:3000}
     cache-ttl-ms: ${EXCHANGE_RATE_CACHE_TTL_MS:30000}
+  gemini:
+    api-key: ${GEMINI_API_KEY:}
+    model: ${GEMINI_MODEL:gemini-2.5-flash-lite}
+    timeout-ms: ${GEMINI_TIMEOUT_MS:10000}

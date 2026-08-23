@@ -13,6 +13,7 @@ import java.net.URI;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.tomas.cuaderno.ai.AiUnavailableException;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -32,6 +33,8 @@ public class GlobalExceptionHandler {
     ProblemDetail unauthorized(AuthenticationException ex, HttpServletRequest request) { return problem(HttpStatus.UNAUTHORIZED, "Authentication failed", request); }
     @ExceptionHandler(DataIntegrityViolationException.class)
     ProblemDetail conflict(DataIntegrityViolationException ex, HttpServletRequest request) { return problem(HttpStatus.CONFLICT, "The requested change conflicts with existing data", request); }
+    @ExceptionHandler(AiUnavailableException.class)
+    ProblemDetail aiUnavailable(AiUnavailableException ex, HttpServletRequest request) { return problem(HttpStatus.SERVICE_UNAVAILABLE, ex, request); }
     @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
     ProblemDetail unsupportedMediaType(HttpMediaTypeNotSupportedException ex, HttpServletRequest request) { return problem(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Unsupported request content type", request); }
     @ExceptionHandler(Exception.class)
