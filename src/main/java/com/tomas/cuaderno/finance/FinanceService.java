@@ -6,7 +6,7 @@ import com.tomas.cuaderno.common.pagination.PageResponse;
 import com.tomas.cuaderno.configuration.*;
 import java.math.*;
 import java.time.*;
-import java.util.UUID;
+import java.util.*;
 import org.springframework.data.domain.*;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -26,8 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
     @Transactional public FinanceDtos.Response patch(UUID owner, UUID id, FinanceDtos.PatchRequest request) { FinanceMovement x = repository.findByIdAndOwnerIdAndDeletedAtIsNull(id, owner).orElseThrow(() -> new NotFoundException("Finance movement not found")); if (request.itemCode() != null) { validateItem(owner, request.itemCode()); x.setItemCode(request.itemCode().trim()); } if (request.date() != null) x.setDate(request.date()); if (request.bucket() != null) x.setBucket(request.bucket()); if (request.amountArs() != null) x.setAmountArs(request.amountArs().setScale(2, RoundingMode.HALF_UP)); if (request.note() != null) x.setNote(request.note()); return response(owner, x); }
     @Transactional public void delete(UUID owner, UUID id) { FinanceMovement x = repository.findByIdAndOwnerIdAndDeletedAtIsNull(id, owner).orElseThrow(() -> new NotFoundException("Finance movement not found")); x.setDeletedAt(Instant.now()); }
     public FinanceDtos.Summary summary(UUID owner, LocalDate from, LocalDate to) {
-        if (from == null || to == null || from.isAfter(to)) throw new BadRequestException("Invalid finance summary range");
-        if (from.plusDays(MAX_SUMMARY_DAYS - 1L).isBefore(to)) throw new BadRequestException("Finance summary range is too large");
+        validateRange(from, to, "summary");
         BigDecimal income = BigDecimal.ZERO, expense = BigDecimal.ZERO, invested = BigDecimal.ZERO;
         for (FinanceMovementRepository.SummaryRow row : repository.summarize(owner, from, to)) {
             if (row.getBucket() == FinanceBucket.INCOME) income = row.getTotal();
@@ -37,8 +36,28 @@ import org.springframework.transaction.annotation.Transactional;
         FinanceDtos.ExchangeRateResponse exchangeRate = rates.usd(owner); BigDecimal rate = exchangeRate.average();
         return new FinanceDtos.Summary(from, to, money(income, rate), money(expense, rate), money(invested, rate), money(income.subtract(expense).subtract(invested), rate), exchangeRate);
     }
+    public FinanceDtos.Analytics analytics(UUID owner, LocalDate from, LocalDate to) {
+        validateRange(from, to, "analytics");
+        Map<LocalDate, EnumMap<FinanceBucket, BigDecimal>> daily = new TreeMap<>();
+        for (FinanceMovementRepository.DailySummaryRow row : repository.summarizeDaily(owner, from, to)) {
+            daily.computeIfAbsent(row.getDate(), ignored -> new EnumMap<>(FinanceBucket.class)).put(row.getBucket(), row.getTotal());
+        }
+        List<FinanceDtos.DailySummary> dailyResponse = daily.entrySet().stream()
+            .map(entry -> new FinanceDtos.DailySummary(entry.getKey(), amount(entry.getValue(), FinanceBucket.INCOME), amount(entry.getValue(), FinanceBucket.EXPENSE)))
+            .toList();
+        Map<FinanceBucket, List<FinanceDtos.CategorySummary>> categories = new EnumMap<>(FinanceBucket.class);
+        for (FinanceMovementRepository.CategorySummaryRow row : repository.summarizeCategories(owner, from, to)) {
+            categories.computeIfAbsent(row.getBucket(), ignored -> new ArrayList<>()).add(new FinanceDtos.CategorySummary(row.getItemCode(), row.getTotal()));
+        }
+        return new FinanceDtos.Analytics(from, to, dailyResponse, categories.getOrDefault(FinanceBucket.INCOME, List.of()), categories.getOrDefault(FinanceBucket.EXPENSE, List.of()));
+    }
     public long count(UUID owner) { return repository.countByOwnerIdAndDeletedAtIsNull(owner); }
     private void validateItem(UUID owner, String itemCode) { configuration.requireActive(owner, ConfigKind.FINANCE_ITEM, itemCode, "itemCode"); }
+    private void validateRange(LocalDate from, LocalDate to, String operation) {
+        if (from == null || to == null || from.isAfter(to)) throw new BadRequestException("Invalid finance " + operation + " range");
+        if (from.plusDays(MAX_SUMMARY_DAYS - 1L).isBefore(to)) throw new BadRequestException("Finance " + operation + " range is too large");
+    }
+    private BigDecimal amount(Map<FinanceBucket, BigDecimal> values, FinanceBucket bucket) { return values.getOrDefault(bucket, BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP); }
     private FinanceDtos.MoneyResponse money(BigDecimal ars, BigDecimal rate) { return new FinanceDtos.MoneyResponse(ars.setScale(2, RoundingMode.HALF_UP), ars.divide(rate, 2, RoundingMode.HALF_UP), rate); }
     private FinanceDtos.Response response(UUID owner, FinanceMovement x) { BigDecimal rate = x.getExchangeRateSnapshot(); return new FinanceDtos.Response(x.getId(), x.getDate(), x.getBucket(), money(x.getAmountArs(), rate), configuration.option(owner, ConfigKind.FINANCE_ITEM, x.getItemCode()), x.getNote(), x.getCreatedAt(), x.getUpdatedAt()); }
 }

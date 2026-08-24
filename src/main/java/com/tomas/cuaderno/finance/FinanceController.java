@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.*;
     @PatchMapping("/movements/{id}") public FinanceDtos.Response patch(@PathVariable UUID id, @Valid @RequestBody FinanceDtos.PatchRequest request) { return service.patch(CurrentUser.id(), id, request); }
     @DeleteMapping("/movements/{id}") @ResponseStatus(HttpStatus.NO_CONTENT) public void delete(@PathVariable UUID id) { service.delete(CurrentUser.id(), id); }
     @GetMapping("/summary") public FinanceDtos.Summary summary(@RequestParam LocalDate from, @RequestParam LocalDate to) { return service.summary(CurrentUser.id(), from, to); }
+    @GetMapping("/analytics") public FinanceDtos.Analytics analytics(@RequestParam LocalDate from, @RequestParam LocalDate to) { return service.analytics(CurrentUser.id(), from, to); }
     @GetMapping("/exchange-rate/usd") public FinanceDtos.ExchangeRateResponse rate() { return rates.usd(CurrentUser.id()); }
     @PostMapping("/exchange-rate/usd") @PreAuthorize("hasRole('ADMIN')") public FinanceDtos.ExchangeRateResponse fallback(@Valid @RequestBody FinanceDtos.FallbackRequest request) { return rates.setFallback(CurrentUser.id(), request); }
 }

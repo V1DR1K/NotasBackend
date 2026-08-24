@@ -44,7 +44,9 @@ Notas: `GET/POST /api/notes`, `GET/PATCH/DELETE /api/notes/{id}`. El request es:
 
 GET acepta `categoryCode`, `date`, `from`, `to`, `search`, `page`, `size` y `sort`. `title` admite 180 caracteres, `body` 10000, `categoryCode` y `date` son obligatorios en altas. PATCH rechaza strings vacios.
 
-Finanzas: `GET/POST /api/finance/movements`, `GET/PATCH/DELETE /api/finance/movements/{id}`, `GET /api/finance/summary?from=YYYY-MM-DD&to=YYYY-MM-DD`, `GET /api/finance/exchange-rate/usd` y `POST /api/finance/exchange-rate/usd` solo ADMIN.
+Finanzas: `GET/POST /api/finance/movements`, `GET/PATCH/DELETE /api/finance/movements/{id}`, `GET /api/finance/summary?from=YYYY-MM-DD&to=YYYY-MM-DD`, `GET /api/finance/analytics?from=YYYY-MM-DD&to=YYYY-MM-DD`, `GET /api/finance/exchange-rate/usd` y `POST /api/finance/exchange-rate/usd` solo ADMIN.
+
+La analítica financiera devuelve los totales diarios de ingresos y egresos, además de las sumas agrupadas por `itemCode` para cada bucket. El rango admite hasta 366 días y excluye movimientos eliminados.
 
 El request de movimiento es:
 

@@ -5,6 +5,7 @@ import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 public final class FinanceDtos {
@@ -16,4 +17,7 @@ public final class FinanceDtos {
     public record ExchangeRateResponse(String currency, BigDecimal buy, BigDecimal sell, BigDecimal average, Instant fetchedAt, String source) {}
     public record FallbackRequest(@NotNull @DecimalMin("0.00000001") BigDecimal buy, @NotNull @DecimalMin("0.00000001") BigDecimal sell) {}
     public record Summary(LocalDate from, LocalDate to, MoneyResponse income, MoneyResponse expense, MoneyResponse invested, MoneyResponse cash, ExchangeRateResponse exchangeRate) {}
+    public record Analytics(LocalDate from, LocalDate to, List<DailySummary> daily, List<CategorySummary> incomeCategories, List<CategorySummary> expenseCategories) {}
+    public record DailySummary(LocalDate date, BigDecimal income, BigDecimal expense) {}
+    public record CategorySummary(String itemCode, BigDecimal total) {}
 }
