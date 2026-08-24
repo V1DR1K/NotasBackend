@@ -4,15 +4,28 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import com.tomas.cuaderno.configuration.*;
+import com.tomas.cuaderno.finance.*;
+import java.math.BigDecimal;
+import java.time.Instant;
 
 @Component
 public class InitialDataSeeder implements CommandLineRunner {
-    private final UserRepository users; private final ConfigItemRepository config;
-    public InitialDataSeeder(UserRepository users, ConfigItemRepository config) { this.users = users; this.config = config; }
+    private final UserRepository users; private final ConfigItemRepository config; private final FinanceAccountRepository accounts;
+    public InitialDataSeeder(UserRepository users, ConfigItemRepository config, FinanceAccountRepository accounts) { this.users = users; this.config = config; this.accounts = accounts; }
     @Transactional public void run(String... args) {
         users.findAll().stream().filter(user -> user.getAuthUserId() != null).forEach(this::seedFor);
     }
-    @Transactional public void seedFor(User user) { if (user.getAuthUserId() != null) seed(user.getId()); }
+    @Transactional public void seedFor(User user) { if (user.getAuthUserId() != null) { seed(user.getId()); seedAccounts(user); } }
+    private void seedAccounts(User user) {
+        if (!"tomas".equalsIgnoreCase(user.getUsername())) return;
+        account(user.getId(), "mercadopago", "MercadoPago / Caja de ahorro", FinanceAccountType.CASH, "58938.11", "18.5", FinanceAccountGrowthMode.DAILY_TNA);
+        account(user.getId(), "inversiones_pesos", "Inversiones en pesos", FinanceAccountType.INVESTMENT, "800000", "0", FinanceAccountGrowthMode.MANUAL);
+        account(user.getId(), "crypto", "Crypto", FinanceAccountType.CRYPTO, "6206454.61", "0", FinanceAccountGrowthMode.MANUAL);
+    }
+    private void account(java.util.UUID owner, String code, String label, FinanceAccountType type, String balance, String rate, FinanceAccountGrowthMode mode) {
+        if (accounts.findByOwnerIdAndCodeIgnoreCaseAndDeletedAtIsNull(owner, code).isPresent()) return;
+        FinanceAccount account = new FinanceAccount(); account.setOwnerId(owner); account.setCode(code); account.setLabel(label); account.setType(type); account.setBalanceArs(new BigDecimal(balance)); account.setAnnualRatePercent(new BigDecimal(rate)); account.setGrowthMode(mode); account.setBalanceAsOf(Instant.now()); account.setActive(true); accounts.save(account);
+    }
     private void seed(java.util.UUID owner) {
         option(owner, ConfigKind.DAY_STATUS, "green", "Verde", "🟢", 0, true);
         option(owner, ConfigKind.DAY_STATUS, "yellow", "Amarillo", "🟡", 1, true);

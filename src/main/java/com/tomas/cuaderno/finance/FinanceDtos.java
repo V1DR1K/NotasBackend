@@ -20,4 +20,6 @@ public final class FinanceDtos {
     public record Analytics(LocalDate from, LocalDate to, List<DailySummary> daily, List<CategorySummary> incomeCategories, List<CategorySummary> expenseCategories) {}
     public record DailySummary(LocalDate date, BigDecimal income, BigDecimal expense) {}
     public record CategorySummary(String itemCode, BigDecimal total) {}
+    public record AccountResponse(String code, String label, FinanceAccountType type, BigDecimal balanceArs, BigDecimal annualRatePercent, FinanceAccountGrowthMode growthMode, Instant balanceAsOf) {}
+    public record AccountSyncRequest(@NotNull @DecimalMin(value = "0.00") BigDecimal balanceArs) {}
 }
