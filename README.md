@@ -6,15 +6,12 @@ Backend inicial de Cuaderno. Java 21, Spring Boot 3.5.5, Maven, PostgreSQL 17, F
 
 ```bash
 docker compose up --build
-curl -c cookies.txt http://localhost:8080/api/auth/csrf
-csrf=$(awk '$6 == "XSRF-TOKEN" {print $7}' cookies.txt)
-curl -c cookies.txt -b cookies.txt -H 'Content-Type: application/json' \
-  -H "X-XSRF-TOKEN: $csrf" \
+curl -H 'Content-Type: application/json' \
   -d '{"username":"central-user","password":"central-password"}' \
   http://localhost:8080/api/auth/login
 ```
 
-El login delega en Auth central y emite el access JWT central en una cookie `HttpOnly`, `SameSite=Lax`; el refresh token usa otra cookie `HttpOnly`. Los tokens nunca se devuelven al navegador como JSON ni se guardan en `localStorage`. Las operaciones que cambian datos, incluido login, requieren el valor `token` de `GET /api/auth/csrf` en el header `X-XSRF-TOKEN`. El Compose local desactiva `Secure` explícitamente para HTTP; en producción `JWT_SECURE_COOKIE=true` es obligatorio detrás de HTTPS.
+El login delega en Auth central y devuelve el access JWT y refresh token como JSON. El frontend guarda la sesión en `localStorage`, envía `Authorization: Bearer` y rota el refresh token automáticamente cuando el access token vence. La API es stateless y no utiliza cookies ni CSRF.
 
 Health: `GET /api/actuator/health`.
 

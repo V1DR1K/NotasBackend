@@ -1,97 +1,61 @@
 package com.tomas.cuaderno.auth;
 
 import com.tomas.cuaderno.common.security.*;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
-import java.time.Duration;
-import org.springframework.http.ResponseCookie;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.bind.annotation.*;
 
 @RestController @RequestMapping("/api/auth")
 public class AuthController {
-    private static final String CSRF_COOKIE_NAME = "XSRF-TOKEN";
     private final CentralAuthClient central;
     private final LocalUserProvisioningService provisioning;
-    private final AuthProperties authProperties;
-    private final SecurityProperties securityProperties;
 
-    public AuthController(CentralAuthClient central, LocalUserProvisioningService provisioning, AuthProperties authProperties, SecurityProperties securityProperties) {
-        this.central = central; this.provisioning = provisioning; this.authProperties = authProperties; this.securityProperties = securityProperties;
+    public AuthController(CentralAuthClient central, LocalUserProvisioningService provisioning) {
+        this.central = central; this.provisioning = provisioning;
     }
 
     @PostMapping("/login")
-    public AuthDtos.UserResponse login(@Valid @RequestBody AuthDtos.LoginRequest request, HttpServletResponse response) {
+    public AuthDtos.AuthResponse login(@Valid @RequestBody AuthDtos.LoginRequest request) {
         CentralAuthClient.TokenResponse tokens = central.login(request.username(), request.password());
-        return setSession(tokens, response);
+        return session(tokens);
     }
 
     @PostMapping("/refresh")
-    public AuthDtos.UserResponse refresh(HttpServletRequest request, HttpServletResponse response) {
-        String refreshToken = cookie(request, authProperties.getRefreshCookieName());
-        if (refreshToken == null || refreshToken.isBlank()) {
-            clearSession(response);
-            throw new BadCredentialsException("Session refresh token is missing");
-        }
-        try {
-            return setSession(central.refresh(refreshToken), response);
-        } catch (BadCredentialsException ex) {
-            clearSession(response);
-            throw ex;
-        }
+    public AuthDtos.AuthResponse refresh(@Valid @RequestBody AuthDtos.RefreshRequest request) {
+        return session(central.refresh(request.refreshToken()));
     }
 
     @PostMapping("/logout")
-    public void logout(HttpServletRequest request, HttpServletResponse response) {
-        try {
-            central.logout(cookie(request, authProperties.getRefreshCookieName()));
-        } finally {
-            clearSession(response);
-        }
+    public void logout(@Valid @RequestBody(required = false) AuthDtos.RefreshRequest request) {
+        central.logout(request == null ? null : request.refreshToken());
     }
 
     @GetMapping("/me")
     public AuthDtos.UserResponse me(@AuthenticationPrincipal AppPrincipal principal, HttpServletRequest request) {
-        CentralAuthClient.CentralUser centralUser = central.me(cookie(request, securityProperties.getCookieName()));
+        CentralAuthClient.CentralUser centralUser = central.me(accessToken(request));
         return new AuthDtos.UserResponse(principal.id(), centralUser.username(), principal.role(), centralUser.mustChangePassword());
     }
 
-    @PostMapping("/change-password")
+    @PutMapping("/change-password")
     public AuthDtos.MessageResponse changePassword(@Valid @RequestBody AuthDtos.ChangePasswordRequest request, HttpServletRequest httpRequest) {
-        central.changePassword(cookie(httpRequest, securityProperties.getCookieName()), request.currentPassword(), request.newPassword());
+        central.changePassword(accessToken(httpRequest), request.currentPassword(), request.newPassword());
         return new AuthDtos.MessageResponse("Password changed");
     }
 
-    @GetMapping("/csrf")
-    public AuthDtos.CsrfResponse csrf(CsrfToken token) { return new AuthDtos.CsrfResponse(token.getToken()); }
-
-    private AuthDtos.UserResponse setSession(CentralAuthClient.TokenResponse tokens, HttpServletResponse response) {
+    private AuthDtos.AuthResponse session(CentralAuthClient.TokenResponse tokens) {
         if (tokens == null || tokens.user() == null || tokens.accessToken() == null || tokens.refreshToken() == null) throw new IllegalStateException("Central auth returned an incomplete session");
         User local = provisioning.provision(tokens.user());
-        long accessAge = tokens.expiresIn() > 0 ? tokens.expiresIn() : 900;
-        addCookie(response, securityProperties.getCookieName(), tokens.accessToken(), Duration.ofSeconds(accessAge));
-        addCookie(response, authProperties.getRefreshCookieName(), tokens.refreshToken(), authProperties.getRefreshCookieMaxAge());
-        return new AuthDtos.UserResponse(local.getId(), tokens.user().username(), local.getRole(), tokens.user().mustChangePassword());
+        return new AuthDtos.AuthResponse(tokens.accessToken(), tokens.refreshToken(), tokens.tokenType(), tokens.expiresIn(),
+                new AuthDtos.UserResponse(local.getId(), tokens.user().username(), local.getRole(), tokens.user().mustChangePassword()));
     }
 
-    private void addCookie(HttpServletResponse response, String name, String value, Duration maxAge) {
-        addCookie(response, name, value, maxAge, true);
-    }
-    private void addCookie(HttpServletResponse response, String name, String value, Duration maxAge, boolean httpOnly) {
-        response.addHeader("Set-Cookie", ResponseCookie.from(name, value).httpOnly(httpOnly).secure(securityProperties.isSecureCookie()).sameSite("Lax").path("/").maxAge(maxAge).build().toString());
-    }
-    private void clearCookie(HttpServletResponse response, String name) { addCookie(response, name, "", Duration.ZERO); }
-    private void clearSession(HttpServletResponse response) {
-        clearCookie(response, securityProperties.getCookieName());
-        clearCookie(response, authProperties.getRefreshCookieName());
-        addCookie(response, CSRF_COOKIE_NAME, "", Duration.ZERO, false);
-    }
-    private String cookie(HttpServletRequest request, String name) {
-        if (request.getCookies() != null) for (Cookie cookie : request.getCookies()) if (name.equals(cookie.getName())) return cookie.getValue();
-        return null;
+    private String accessToken(HttpServletRequest request) {
+        String authorization = request.getHeader("Authorization");
+        if (authorization == null || !authorization.startsWith("Bearer ") || authorization.length() <= 7) {
+            throw new BadCredentialsException("Bearer token is missing");
+        }
+        return authorization.substring(7);
     }
 }

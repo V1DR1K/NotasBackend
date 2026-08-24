@@ -48,7 +48,7 @@ public class CentralAuthClient {
         try {
             client.post().uri("/api/logout").body(new RefreshRequest(refreshToken)).retrieve().toBodilessEntity();
         } catch (RuntimeException ex) {
-            // Logout must remain idempotent: clearing the local cookies is enough
+            // Logout must remain idempotent: clearing the local session is enough
             // to end this app session even when central revocation is unavailable
             // or the refresh token has already expired.
             log.debug("Central logout could not revoke the refresh token", ex);

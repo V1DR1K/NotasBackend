@@ -7,7 +7,8 @@ public final class AuthDtos {
     private AuthDtos() {}
     public record LoginRequest(@NotBlank String username, @NotBlank String password) {}
     public record UserResponse(UUID id, String username, String role, boolean mustChangePassword) {}
+    public record AuthResponse(String accessToken, String refreshToken, String tokenType, long expiresIn, UserResponse user) {}
+    public record RefreshRequest(@NotBlank String refreshToken) {}
     public record ChangePasswordRequest(@NotBlank String currentPassword, @NotBlank String newPassword) {}
     public record MessageResponse(String message) {}
-    public record CsrfResponse(String token) {}
 }

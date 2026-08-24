@@ -2,7 +2,6 @@ package com.tomas.cuaderno.common.security;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -18,13 +17,12 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final UserDetailsService users;
-    private final SecurityProperties properties;
-    public JwtAuthenticationFilter(JwtService jwtService, UserDetailsService users, SecurityProperties properties) { this.jwtService = jwtService; this.users = users; this.properties = properties; }
+    public JwtAuthenticationFilter(JwtService jwtService, UserDetailsService users) { this.jwtService = jwtService; this.users = users; }
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws ServletException, IOException {
-        String token = null;
-        if (request.getCookies() != null) for (Cookie cookie : request.getCookies()) if (properties.getCookieName().equals(cookie.getName())) token = cookie.getValue();
-        if (token != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+        String authorization = request.getHeader("Authorization");
+        if (authorization != null && authorization.startsWith("Bearer ") && SecurityContextHolder.getContext().getAuthentication() == null) {
             try {
+                String token = authorization.substring(7);
                 UUID id = jwtService.subject(token);
                 AppPrincipal principal = (AppPrincipal) users.loadUserByUsername(id.toString());
                 if (!principal.isEnabled()) throw new org.springframework.security.authentication.DisabledException("User is disabled");
