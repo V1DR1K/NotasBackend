@@ -4,7 +4,9 @@ import com.tomas.cuaderno.common.errors.NotFoundException;
 import com.tomas.cuaderno.common.pagination.PageResponse;
 import com.tomas.cuaderno.configuration.*;
 import java.time.*;
+import java.util.Map;
 import java.util.UUID;
+import java.util.Locale;
 import org.springframework.data.domain.*;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
@@ -19,8 +21,14 @@ import org.springframework.transaction.annotation.Transactional;
         if (date != null) spec = spec.and((r, q, c) -> c.equal(r.get("date"), date));
         if (from != null) spec = spec.and((r, q, c) -> c.greaterThanOrEqualTo(r.get("date"), from));
         if (to != null) spec = spec.and((r, q, c) -> c.lessThanOrEqualTo(r.get("date"), to));
-        if (search != null && !search.isBlank()) spec = spec.and((r, q, c) -> c.or(c.like(c.lower(r.get("title")), "%" + search.toLowerCase() + "%"), c.like(c.lower(r.get("body")), "%" + search.toLowerCase() + "%")));
-        return PageResponse.from(repository.findAll(spec, page).map(x -> response(owner, x)));
+        if (search != null && !search.isBlank()) {
+            if (search.length() > 120) throw new com.tomas.cuaderno.common.errors.BadRequestException("Search query is too long");
+            String pattern = "%" + escapeLike(search.trim().toLowerCase(Locale.ROOT)) + "%";
+            spec = spec.and((r, q, c) -> c.or(c.like(c.lower(r.get("title")), pattern, '\\'), c.like(c.lower(r.get("body")), pattern, '\\')));
+        }
+        Page<Note> result = repository.findAll(spec, page);
+        Map<String, ConfigurationDtos.ConfigOptionResponse> categories = configuration.index(owner, ConfigKind.NOTE_CATEGORY);
+        return PageResponse.from(result.map(x -> response(x, categories)));
     }
     public NoteDtos.Response get(UUID owner, UUID id) { return response(owner, repository.findByIdAndOwnerIdAndDeletedAtIsNull(id, owner).orElseThrow(() -> new NotFoundException("Note not found"))); }
     public long count(UUID owner) { return repository.countByOwnerIdAndDeletedAtIsNull(owner); }
@@ -29,5 +37,11 @@ import org.springframework.transaction.annotation.Transactional;
     @Transactional public void delete(UUID owner, UUID id) { Note item = repository.findByIdAndOwnerIdAndDeletedAtIsNull(id, owner).orElseThrow(() -> new NotFoundException("Note not found")); item.setDeletedAt(Instant.now()); }
     private void validateCategory(UUID owner, String code) { configuration.requireActive(owner, ConfigKind.NOTE_CATEGORY, code, "categoryCode"); }
     private String normalize(String value) { return value == null ? null : value.trim(); }
-    private NoteDtos.Response response(UUID owner, Note item) { return new NoteDtos.Response(item.getId(), item.getTitle(), item.getBody(), item.getCategoryCode() == null ? null : configuration.option(owner, ConfigKind.NOTE_CATEGORY, item.getCategoryCode()), item.getDate(), item.getCreatedAt(), item.getUpdatedAt()); }
+    private String escapeLike(String value) { return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_"); }
+    private NoteDtos.Response response(UUID owner, Note item) { return response(item, configuration.index(owner, ConfigKind.NOTE_CATEGORY)); }
+    private NoteDtos.Response response(Note item, Map<String, ConfigurationDtos.ConfigOptionResponse> categories) {
+        ConfigurationDtos.ConfigOptionResponse category = item.getCategoryCode() == null ? null : categories.get(item.getCategoryCode().toLowerCase(Locale.ROOT));
+        if (item.getCategoryCode() != null && category == null) throw new NotFoundException("Configuration option not found");
+        return new NoteDtos.Response(item.getId(), item.getTitle(), item.getBody(), category, item.getDate(), item.getCreatedAt(), item.getUpdatedAt());
+    }
 }

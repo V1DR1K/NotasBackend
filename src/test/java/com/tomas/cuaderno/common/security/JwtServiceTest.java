@@ -28,4 +28,10 @@ class JwtServiceTest {
         String token = Jwts.builder().subject(id.toString()).issuer(properties.getIssuer()).signWith(pair.getPrivate(), Jwts.SIG.RS256).compact();
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.subject(token)).isInstanceOf(RuntimeException.class);
     }
+
+    @Test void requiresConfiguredAudienceWhenEnabled() throws Exception {
+        KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA"); generator.initialize(2048); KeyPair pair = generator.generateKeyPair();
+        AuthProperties properties = new AuthProperties(); properties.setPublicKeyPem(Base64.getEncoder().encodeToString(pair.getPublic().getEncoded())); properties.setRequireAudience(true);
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> new JwtService(properties)).isInstanceOf(IllegalStateException.class).hasMessageContaining("AUTH_JWT_AUDIENCE");
+    }
 }

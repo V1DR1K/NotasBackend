@@ -5,10 +5,12 @@ import com.tomas.cuaderno.ai.GeminiDaySuggestionService;
 import com.tomas.cuaderno.common.errors.NotFoundException;
 import com.tomas.cuaderno.common.pagination.PageResponse;
 import com.tomas.cuaderno.configuration.ConfigKind;
+import com.tomas.cuaderno.configuration.ConfigurationDtos;
 import com.tomas.cuaderno.configuration.ConfigurationService;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -37,7 +39,9 @@ public class DayService {
             var codes = feelings.stream().filter(code -> code != null && !code.isBlank()).map(String::toLowerCase).distinct().toList();
             if (!codes.isEmpty()) spec = spec.and((r, q, c) -> c.or(codes.stream().map(code -> c.like(c.lower(r.get("feeling")), "%|" + code + "|%")).toArray(jakarta.persistence.criteria.Predicate[]::new)));
         }
-        return PageResponse.from(repository.findAll(spec, pageable).map(x -> response(owner, x)));
+        var result = repository.findAll(spec, pageable);
+        Map<String, ConfigurationDtos.ConfigOptionResponse> statuses = configuration.index(owner, ConfigKind.DAY_STATUS);
+        return PageResponse.from(result.map(x -> response(x, statuses)));
     }
 
     public DayDtos.Response get(UUID owner, UUID id) {
@@ -71,7 +75,6 @@ public class DayService {
         return response(owner, item);
     }
 
-    @Transactional
     public DayDtos.Response analyze(UUID owner, UUID id) {
         DayEntry item = repository.findByIdAndOwnerIdAndDeletedAtIsNull(id, owner).orElseThrow(() -> new NotFoundException("Day entry not found"));
         try {
@@ -86,7 +89,7 @@ public class DayService {
         } catch (AiUnavailableException ex) {
             markPending(item);
         }
-        return response(owner, item);
+        return response(owner, repository.save(item));
     }
 
     @Transactional
@@ -103,7 +106,10 @@ public class DayService {
 
     private String serializeFeelings(List<String> values) { return "|" + String.join("|", values) + "|"; }
 
-    private DayDtos.Response response(UUID owner, DayEntry item) {
-        return new DayDtos.Response(item.getId(), item.getDate(), item.getAnalysisStatus(), item.getStatusCode() == null ? null : configuration.option(owner, ConfigKind.DAY_STATUS, item.getStatusCode()), item.getFeeling(), item.getDescription(), item.getCreatedAt(), item.getUpdatedAt());
+    private DayDtos.Response response(UUID owner, DayEntry item) { return response(item, configuration.index(owner, ConfigKind.DAY_STATUS)); }
+    private DayDtos.Response response(DayEntry item, Map<String, ConfigurationDtos.ConfigOptionResponse> statuses) {
+        ConfigurationDtos.ConfigOptionResponse status = item.getStatusCode() == null ? null : statuses.get(item.getStatusCode().toLowerCase(java.util.Locale.ROOT));
+        if (item.getStatusCode() != null && status == null) throw new NotFoundException("Configuration option not found");
+        return new DayDtos.Response(item.getId(), item.getDate(), item.getAnalysisStatus(), status, item.getFeeling(), item.getDescription(), item.getCreatedAt(), item.getUpdatedAt());
     }
 }

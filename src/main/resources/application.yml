@@ -3,8 +3,8 @@ spring:
   data.web.pageable.max-page-size: 100
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/cuaderno}
-    username: ${SPRING_DATASOURCE_USERNAME:cuaderno}
-    password: ${SPRING_DATASOURCE_PASSWORD:cuaderno}
+    username: ${SPRING_DATASOURCE_USERNAME:}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
   jpa:
     open-in-view: false
     hibernate.ddl-auto: validate
@@ -26,10 +26,14 @@ cuaderno:
     public-key-pem: ${AUTH_PUBLIC_KEY_PEM:}
     issuer: ${AUTH_JWT_ISSUER:central-auth-service}
     audience: ${AUTH_JWT_AUDIENCE:}
+    require-audience: ${AUTH_JWT_REQUIRE_AUDIENCE:false}
     client-timeout-ms: ${AUTH_CLIENT_TIMEOUT_MS:3000}
     default-role: ${AUTH_DEFAULT_ROLE:USER}
   security:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:https://notes.neticar.com.ar,http://localhost:3000}
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:https://notes.neticar.com.ar}
+  rate-limit:
+    enabled: ${RATE_LIMIT_ENABLED:true}
+    window-seconds: ${RATE_LIMIT_WINDOW_SECONDS:60}
   files:
     root: ${FILE_STORAGE_ROOT:/var/lib/cuaderno/files}
     max-user-bytes: ${FILE_MAX_USER_BYTES:1073741824}

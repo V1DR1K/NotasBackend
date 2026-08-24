@@ -12,6 +12,9 @@ public class ConfigurationService {
     private final ConfigItemRepository repository;
     public ConfigurationService(ConfigItemRepository repository) { this.repository = repository; }
     public List<ConfigurationDtos.ConfigOptionResponse> list(UUID owner, ConfigKind kind) { return repository.findByOwnerIdAndKindAndDeletedAtIsNullOrderBySortOrderAscCodeAsc(owner, kind).stream().map(this::response).toList(); }
+    public Map<String, ConfigurationDtos.ConfigOptionResponse> index(UUID owner, ConfigKind kind) {
+        return list(owner, kind).stream().collect(java.util.stream.Collectors.toMap(option -> option.code().toLowerCase(Locale.ROOT), option -> option, (left, right) -> left, LinkedHashMap::new));
+    }
     @Transactional public ConfigurationDtos.ConfigOptionResponse createDayStatus(UUID owner, ConfigurationDtos.DayStatusRequest request) { requireCanonicalDayStatus(request.code()); return create(owner, ConfigKind.DAY_STATUS, request.code(), request.label(), request.emoji(), request.sortOrder(), true); }
     @Transactional public ConfigurationDtos.ConfigOptionResponse createOption(UUID owner, ConfigKind kind, ConfigurationDtos.OptionRequest request) { return create(owner, kind, request.code(), request.label(), null, request.sortOrder(), request.active()); }
     @Transactional public ConfigurationDtos.ConfigOptionResponse patch(UUID owner, ConfigKind kind, String code, ConfigurationDtos.PatchRequest request) {

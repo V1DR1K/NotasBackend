@@ -72,9 +72,9 @@ public class GeminiDaySuggestionService {
         payload.put("contents", List.of(Map.of("role", "user", "parts", List.of(Map.of("text", userPrompt(text, statuses, feelings))))));
         payload.put("generationConfig", Map.of("temperature", 0.1, "responseMimeType", "application/json"));
 
-        String url = "https://generativelanguage.googleapis.com/v1beta/models/" + properties.getModel() + ":generateContent?key=" + properties.getApiKey();
+        String url = "https://generativelanguage.googleapis.com/v1beta/models/" + properties.getModel() + ":generateContent";
         try {
-            String body = client.post().uri(url).body(payload).retrieve().body(String.class);
+            String body = client.post().uri(url).header("x-goog-api-key", properties.getApiKey()).body(payload).retrieve().body(String.class);
             return validate(parse(body), statuses, feelings);
         } catch (BadRequestException ex) {
             throw ex;

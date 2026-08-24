@@ -9,6 +9,7 @@ public class AuthProperties {
     private String defaultRole = "USER";
     private String issuer = "central-auth-service";
     private String audience;
+    private boolean requireAudience;
     private int clientTimeoutMs = 3000;
 
     public String getServiceUrl() { return serviceUrl; }
@@ -21,6 +22,8 @@ public class AuthProperties {
     public void setIssuer(String value) { issuer = value; }
     public String getAudience() { return audience; }
     public void setAudience(String value) { audience = value; }
+    public boolean isRequireAudience() { return requireAudience; }
+    public void setRequireAudience(boolean value) { requireAudience = value; }
     public int getClientTimeoutMs() { return clientTimeoutMs; }
     public void setClientTimeoutMs(int value) { clientTimeoutMs = value; }
 }

@@ -3,7 +3,7 @@ WORKDIR /build
 COPY pom.xml .
 RUN mvn -B dependency:go-offline
 COPY src src
-RUN mvn -B package -DskipTests
+RUN mvn -B package
 
 FROM eclipse-temurin:21-jre@sha256:7a65df4b22d2de92d4e04056e884f3b9122d70b21e2847fd66084278bd0ce037
 RUN apt-get update \

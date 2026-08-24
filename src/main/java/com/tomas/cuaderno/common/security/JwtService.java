@@ -18,6 +18,7 @@ public class JwtService {
         key = readPublicKey(properties.getPublicKeyPem());
         issuer = require(properties.getIssuer(), "AUTH_JWT_ISSUER");
         audience = properties.getAudience() == null ? "" : properties.getAudience().trim();
+        if (properties.isRequireAudience() && audience.isBlank()) throw new IllegalStateException("AUTH_JWT_AUDIENCE is required when audience validation is enabled");
     }
     public UUID subject(String token) {
         var parser = Jwts.parser().verifyWith(key).requireIssuer(issuer);

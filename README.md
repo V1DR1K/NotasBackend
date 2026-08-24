@@ -11,7 +11,7 @@ curl -H 'Content-Type: application/json' \
   http://localhost:8080/api/auth/login
 ```
 
-El login delega en Auth central y devuelve el access JWT y refresh token como JSON. El frontend guarda la sesión en `localStorage`, envía `Authorization: Bearer` y rota el refresh token automáticamente cuando el access token vence. La API es stateless y no utiliza cookies ni CSRF.
+El login delega en Auth central y devuelve el access JWT y refresh token como JSON. El frontend mantiene la sesión en `localStorage`, envía `Authorization: Bearer` y rota el refresh token automáticamente cuando el access token vence. La API es stateless y no utiliza cookies ni CSRF por decisión explícita del MVP. Para producción se recomienda definir `AUTH_JWT_AUDIENCE` y activar `AUTH_JWT_REQUIRE_AUDIENCE=true`.
 
 Health: `GET /api/actuator/health`.
 
