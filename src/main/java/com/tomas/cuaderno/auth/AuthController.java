@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController @RequestMapping("/api/auth")
 public class AuthController {
+    private static final String CSRF_COOKIE_NAME = "XSRF-TOKEN";
     private final CentralAuthClient central;
     private final LocalUserProvisioningService provisioning;
     private final AuthProperties authProperties;
@@ -49,8 +50,7 @@ public class AuthController {
         try {
             central.logout(cookie(request, authProperties.getRefreshCookieName()));
         } finally {
-            clearCookie(response, securityProperties.getCookieName());
-            clearCookie(response, authProperties.getRefreshCookieName());
+            clearSession(response);
         }
     }
 
@@ -79,10 +79,17 @@ public class AuthController {
     }
 
     private void addCookie(HttpServletResponse response, String name, String value, Duration maxAge) {
-        response.addHeader("Set-Cookie", ResponseCookie.from(name, value).httpOnly(true).secure(securityProperties.isSecureCookie()).sameSite("Lax").path("/").maxAge(maxAge).build().toString());
+        addCookie(response, name, value, maxAge, true);
+    }
+    private void addCookie(HttpServletResponse response, String name, String value, Duration maxAge, boolean httpOnly) {
+        response.addHeader("Set-Cookie", ResponseCookie.from(name, value).httpOnly(httpOnly).secure(securityProperties.isSecureCookie()).sameSite("Lax").path("/").maxAge(maxAge).build().toString());
     }
     private void clearCookie(HttpServletResponse response, String name) { addCookie(response, name, "", Duration.ZERO); }
-    private void clearSession(HttpServletResponse response) { clearCookie(response, securityProperties.getCookieName()); clearCookie(response, authProperties.getRefreshCookieName()); }
+    private void clearSession(HttpServletResponse response) {
+        clearCookie(response, securityProperties.getCookieName());
+        clearCookie(response, authProperties.getRefreshCookieName());
+        addCookie(response, CSRF_COOKIE_NAME, "", Duration.ZERO, false);
+    }
     private String cookie(HttpServletRequest request, String name) {
         if (request.getCookies() != null) for (Cookie cookie : request.getCookies()) if (name.equals(cookie.getName())) return cookie.getValue();
         return null;
