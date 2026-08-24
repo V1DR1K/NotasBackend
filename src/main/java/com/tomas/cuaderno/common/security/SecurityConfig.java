@@ -8,6 +8,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.*;
+import jakarta.servlet.http.HttpServletResponse;
 
 @Configuration @EnableMethodSecurity
 public class SecurityConfig {
@@ -15,6 +16,9 @@ public class SecurityConfig {
         http.csrf(c -> c.disable())
                 .cors(c -> c.configurationSource(corsConfigurationSource(props)))
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(errors -> errors
+                        .authenticationEntryPoint((request, response, exception) -> response.sendError(HttpServletResponse.SC_UNAUTHORIZED))
+                        .accessDeniedHandler((request, response, exception) -> response.sendError(HttpServletResponse.SC_FORBIDDEN)))
                 .authorizeHttpRequests(a -> a.requestMatchers("/api/auth/login", "/api/auth/refresh", "/api/auth/logout")
                         .permitAll().requestMatchers("/api/actuator/health").permitAll().anyRequest().authenticated())
                 .addFilterBefore(jwt, UsernamePasswordAuthenticationFilter.class);
