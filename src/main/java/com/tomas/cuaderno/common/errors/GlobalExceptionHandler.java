@@ -5,9 +5,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.authentication.AuthenticationServiceException;
 import org.springframework.dao.DataIntegrityViolationException;
 import java.net.URI;
 import java.util.stream.Collectors;
@@ -29,6 +31,8 @@ public class GlobalExceptionHandler {
     }
     @ExceptionHandler(ForbiddenException.class)
     ProblemDetail forbidden(ForbiddenException ex, HttpServletRequest request) { return problem(HttpStatus.FORBIDDEN, ex, request); }
+    @ExceptionHandler(AuthenticationServiceException.class)
+    ProblemDetail authUnavailable(AuthenticationServiceException ex, HttpServletRequest request) { return problem(HttpStatus.SERVICE_UNAVAILABLE, "Authentication service is temporarily unavailable", request); }
     @ExceptionHandler(AuthenticationException.class)
     ProblemDetail unauthorized(AuthenticationException ex, HttpServletRequest request) { return problem(HttpStatus.UNAUTHORIZED, "Authentication failed", request); }
     @ExceptionHandler(DataIntegrityViolationException.class)
@@ -37,6 +41,8 @@ public class GlobalExceptionHandler {
     ProblemDetail aiUnavailable(AiUnavailableException ex, HttpServletRequest request) { return problem(HttpStatus.SERVICE_UNAVAILABLE, ex, request); }
     @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
     ProblemDetail unsupportedMediaType(HttpMediaTypeNotSupportedException ex, HttpServletRequest request) { return problem(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Unsupported request content type", request); }
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    ProblemDetail methodNotAllowed(HttpRequestMethodNotSupportedException ex, HttpServletRequest request) { return problem(HttpStatus.METHOD_NOT_ALLOWED, "The requested HTTP method is not supported", request); }
     @ExceptionHandler(Exception.class)
     ProblemDetail unexpected(Exception ex, HttpServletRequest request) {
         log.error("Unhandled API error at {}", request.getRequestURI(), ex);

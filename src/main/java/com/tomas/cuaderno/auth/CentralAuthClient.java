@@ -9,6 +9,7 @@ import org.springframework.web.client.RestClientResponseException;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.authentication.AuthenticationServiceException;
 
 @Service
 public class CentralAuthClient {
@@ -35,7 +36,10 @@ public class CentralAuthClient {
         try {
             return client.post().uri("/api/refresh").body(new RefreshRequest(refreshToken)).retrieve().body(TokenResponse.class);
         } catch (RestClientResponseException ex) {
+            log.debug("Central refresh rejected with status {}", ex.getStatusCode().value());
             throw new org.springframework.security.authentication.BadCredentialsException("Central refresh failed");
+        } catch (RuntimeException ex) {
+            throw new AuthenticationServiceException("Central authentication service is unavailable", ex);
         }
     }
 

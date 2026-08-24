@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import java.time.Duration;
 import org.springframework.http.ResponseCookie;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.bind.annotation.*;
@@ -30,8 +31,17 @@ public class AuthController {
 
     @PostMapping("/refresh")
     public AuthDtos.UserResponse refresh(HttpServletRequest request, HttpServletResponse response) {
-        CentralAuthClient.TokenResponse tokens = central.refresh(cookie(request, authProperties.getRefreshCookieName()));
-        return setSession(tokens, response);
+        String refreshToken = cookie(request, authProperties.getRefreshCookieName());
+        if (refreshToken == null || refreshToken.isBlank()) {
+            clearSession(response);
+            throw new BadCredentialsException("Session refresh token is missing");
+        }
+        try {
+            return setSession(central.refresh(refreshToken), response);
+        } catch (BadCredentialsException ex) {
+            clearSession(response);
+            throw ex;
+        }
     }
 
     @PostMapping("/logout")
@@ -72,6 +82,7 @@ public class AuthController {
         response.addHeader("Set-Cookie", ResponseCookie.from(name, value).httpOnly(true).secure(securityProperties.isSecureCookie()).sameSite("Lax").path("/").maxAge(maxAge).build().toString());
     }
     private void clearCookie(HttpServletResponse response, String name) { addCookie(response, name, "", Duration.ZERO); }
+    private void clearSession(HttpServletResponse response) { clearCookie(response, securityProperties.getCookieName()); clearCookie(response, authProperties.getRefreshCookieName()); }
     private String cookie(HttpServletRequest request, String name) {
         if (request.getCookies() != null) for (Cookie cookie : request.getCookies()) if (name.equals(cookie.getName())) return cookie.getValue();
         return null;
