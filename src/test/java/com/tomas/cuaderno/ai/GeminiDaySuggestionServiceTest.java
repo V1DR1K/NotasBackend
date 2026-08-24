@@ -11,14 +11,14 @@ import org.junit.jupiter.api.Test;
 
 class GeminiDaySuggestionServiceTest {
     @Test
-    void disablesSuggestionsWithoutExposingAnApiCallWhenKeyIsMissing() {
+    void leavesAnalysisPendingWithoutExposingAnApiCallWhenKeyIsMissing() {
         GeminiProperties properties = new GeminiProperties();
         ConfigurationService configuration = mock(ConfigurationService.class);
         GeminiDaySuggestionService service = new GeminiDaySuggestionService(properties, configuration, new ObjectMapper());
 
         GeminiDaySuggestionService.Suggestion result = service.suggest(UUID.randomUUID(), "Hoy fue un día tranquilo");
 
-        assertThat(result.enabled()).isFalse();
+        assertThat(result.analyzed()).isFalse();
         assertThat(result.statusCode()).isEmpty();
         assertThat(result.feelingCodes()).isEmpty();
         verifyNoInteractions(configuration);

@@ -28,13 +28,13 @@ Auth: `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`,
 
 Configuracion: `GET/POST /api/config/day-statuses`, `PATCH/DELETE /api/config/day-statuses/{code}`; los mismos verbos y forma para `finance-concepts`, `finance-categories` y `note-categories`. Las modificaciones requieren ADMIN. La respuesta comun es `ConfigOptionResponse(code,label,emoji,sortOrder,active)` y PATCH es parcial, sin posibilidad de cambiar `code`. Los defaults iniciales del usuario son statuses `green`, `yellow`, `red`; conceptos `monthly_payment`, `freelance`, `weekly_purchase`, `fuel`, `usd_purchase`, `investment_fund`, `transfer`, `other`; categorias financieras `work`, `extra`, `food`, `mobility`, `dollars`, `market`, `home`, `leisure`, `health`, `other`; y categorias de notas `ideas`, `personal`, `work`.
 
-Mi Dia: `GET/POST /api/day-entries`, `GET/PATCH/DELETE /api/day-entries/{id}`. El request de alta es:
+Mi Dia: `GET/POST /api/day-entries`, `GET/PATCH/DELETE /api/day-entries/{id}` y `POST /api/day-entries/{id}/analyze`. El request de alta es:
 
 ```json
-{"date":"2026-08-20","statusCode":"green","feeling":"Productivo y tranquilo","description":"Buen dia"}
+{"date":"2026-08-20","description":"Buen dia"}
 ```
 
-GET acepta `date`, `from`, `to`, `statusCode`, `page`, `size` y `sort`. `feeling` es texto obligatorio de hasta 120 caracteres y `description` texto obligatorio de hasta 3000. La respuesta usa `date`, `status` anidado como `ConfigOptionResponse`, `feeling` y `description`.
+GET acepta `date`, `from`, `to`, `statusCode`, `page`, `size` y `sort`. La descripción es obligatoria de hasta 3000 caracteres. El alta queda inicialmente con `analysisStatus: PENDING`; el análisis completa `status`, `feeling` y `analysisStatus: COMPLETED`. La respuesta usa `date`, `analysisStatus`, `status` anidado como `ConfigOptionResponse`, `feeling` y `description`.
 
 Notas: `GET/POST /api/notes`, `GET/PATCH/DELETE /api/notes/{id}`. El request es:
 

@@ -17,5 +17,6 @@ import org.springframework.web.bind.annotation.*;
     @GetMapping("/{id}") public DayDtos.Response get(@PathVariable UUID id) { return service.get(CurrentUser.id(), id); }
     @PostMapping @ResponseStatus(HttpStatus.CREATED) public DayDtos.Response create(@Valid @RequestBody DayDtos.CreateRequest request) { return service.create(CurrentUser.id(), request); }
     @PatchMapping("/{id}") public DayDtos.Response patch(@PathVariable UUID id, @Valid @RequestBody DayDtos.PatchRequest request) { return service.patch(CurrentUser.id(), id, request); }
+    @PostMapping("/{id}/analyze") public DayDtos.Response analyze(@PathVariable UUID id) { return service.analyze(CurrentUser.id(), id); }
     @DeleteMapping("/{id}") @ResponseStatus(HttpStatus.NO_CONTENT) public void delete(@PathVariable UUID id) { service.delete(CurrentUser.id(), id); }
 }
