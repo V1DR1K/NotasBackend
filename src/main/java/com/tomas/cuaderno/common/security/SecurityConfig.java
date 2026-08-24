@@ -16,7 +16,7 @@ import jakarta.servlet.http.HttpServletResponse;
 public class SecurityConfig {
     @Bean SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwt, SecurityProperties props) throws Exception {
         var csrf = CookieCsrfTokenRepository.withHttpOnlyFalse();
-        http.csrf(c -> c.csrfTokenRepository(csrf))
+        http.csrf(c -> c.csrfTokenRepository(csrf).ignoringRequestMatchers("/api/auth/logout"))
                 .cors(c -> c.configurationSource(corsConfigurationSource(props)))
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(errors -> errors
