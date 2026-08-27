@@ -20,8 +20,9 @@ class FinanceServiceTest {
     @Mock FinanceMovementRepository repository;
     @Mock ExchangeRateService rates;
     @Mock ConfigurationService configuration;
+    @Mock FinanceAccountService accounts;
     @Test void summaryUsesIncomeMinusExpenseMinusInvestedCashRule() {
-        UUID owner = UUID.randomUUID(); FinanceService service = new FinanceService(repository, rates, configuration);
+        UUID owner = UUID.randomUUID(); FinanceService service = new FinanceService(repository, rates, configuration, accounts);
         when(rates.usd(owner)).thenReturn(new FinanceDtos.ExchangeRateResponse("USD", new BigDecimal("99"), new BigDecimal("101"), new BigDecimal("100"), java.time.Instant.now(), "test"));
         FinanceMovementRepository.SummaryRow income = row(FinanceBucket.INCOME, "100");
         FinanceMovementRepository.SummaryRow expense = row(FinanceBucket.EXPENSE, "20");
@@ -30,7 +31,7 @@ class FinanceServiceTest {
         assertThat(service.summary(owner, LocalDate.now().minusDays(1), LocalDate.now()).cash().ars()).isEqualByComparingTo("50");
     }
     @Test void analyticsGroupsDailyAndCategoryTotals() {
-        UUID owner = UUID.randomUUID(); FinanceService service = new FinanceService(repository, rates, configuration);
+        UUID owner = UUID.randomUUID(); FinanceService service = new FinanceService(repository, rates, configuration, accounts);
         LocalDate from = LocalDate.of(2026, 8, 1); LocalDate to = LocalDate.of(2026, 8, 31);
         FinanceMovementRepository.DailySummaryRow dailyIncome = daily(LocalDate.of(2026, 8, 2), FinanceBucket.INCOME, "100");
         FinanceMovementRepository.DailySummaryRow dailyExpense = daily(LocalDate.of(2026, 8, 2), FinanceBucket.EXPENSE, "30");

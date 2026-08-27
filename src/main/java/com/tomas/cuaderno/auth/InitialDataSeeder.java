@@ -22,8 +22,8 @@ public class InitialDataSeeder implements CommandLineRunner {
         if (!"tomas".equalsIgnoreCase(user.getUsername())) return;
         Set<String> existing = accounts.findByOwnerIdAndDeletedAtIsNull(user.getId()).stream().map(account -> account.getCode().toLowerCase()).collect(java.util.stream.Collectors.toCollection(HashSet::new));
         account(user.getId(), existing, "mercadopago", "MercadoPago / Caja de ahorro", FinanceAccountType.CASH, "58938.11", "18.5", FinanceAccountGrowthMode.DAILY_TNA);
-        account(user.getId(), existing, "inversiones_pesos", "Inversiones en pesos", FinanceAccountType.INVESTMENT, "800000", "0", FinanceAccountGrowthMode.MANUAL);
-        account(user.getId(), existing, "crypto", "Crypto", FinanceAccountType.CRYPTO, "6206454.61", "0", FinanceAccountGrowthMode.MANUAL);
+        account(user.getId(), existing, "inversiones_pesos", "Inversión en Pesos", FinanceAccountType.INVESTMENT, "800000", "0", FinanceAccountGrowthMode.MANUAL);
+        account(user.getId(), existing, "crypto", "Inversión Cripto", FinanceAccountType.CRYPTO, "6206454.61", "0", FinanceAccountGrowthMode.MANUAL);
     }
     private void account(java.util.UUID owner, Set<String> existing, String code, String label, FinanceAccountType type, String balance, String rate, FinanceAccountGrowthMode mode) {
         if (!existing.add(code.toLowerCase())) return;
@@ -43,13 +43,13 @@ public class InitialDataSeeder implements CommandLineRunner {
         option(owner, existing, ConfigKind.DAY_FEELING, "estresado", "Estresado", null, 6, true);
         option(owner, existing, ConfigKind.DAY_FEELING, "agradecido", "Agradecido", null, 7, true);
         option(owner, existing, ConfigKind.FINANCE_ITEM, "sueldo", "Sueldo", null, 0, true);
-        option(owner, existing, ConfigKind.FINANCE_ITEM, "inversion_pesos", "Inversion Pesos", null, 1, true);
-        option(owner, existing, ConfigKind.FINANCE_ITEM, "inversion_cripto", "Inversion Cripto", null, 2, true);
-        option(owner, existing, ConfigKind.FINANCE_ITEM, "pedidos_ya", "Pedidos Ya", null, 3, true);
-        option(owner, existing, ConfigKind.FINANCE_ITEM, "comida_afuera", "Comida Afuera", null, 4, true);
-        option(owner, existing, ConfigKind.FINANCE_ITEM, "supermercado_golosineria", "Supermercado / Golosineria", null, 5, true);
-        option(owner, existing, ConfigKind.FINANCE_ITEM, "nafta", "Nafta", null, 6, true);
-        option(owner, existing, ConfigKind.FINANCE_ITEM, "uber_didi", "Uber/Didi", null, 7, true);
+        option(owner, existing, ConfigKind.FINANCE_ITEM, "otro", "Otro", null, 1, true);
+        option(owner, existing, ConfigKind.FINANCE_ITEM, "pedidos_ya", "Pedidos Ya", null, 2, true);
+        option(owner, existing, ConfigKind.FINANCE_ITEM, "comida_afuera", "Comida Afuera", null, 3, true);
+        option(owner, existing, ConfigKind.FINANCE_ITEM, "supermercado", "Supermercado", null, 4, true);
+        option(owner, existing, ConfigKind.FINANCE_ITEM, "nafta", "Nafta", null, 5, true);
+        option(owner, existing, ConfigKind.FINANCE_ITEM, "uber_didi", "Uber/Didi", null, 6, true);
+        option(owner, existing, ConfigKind.FINANCE_ITEM, "transferencia", "Transferencia", null, 7, true);
         option(owner, existing, ConfigKind.NOTE_CATEGORY, "ideas", "Ideas", null, 0, true);
         option(owner, existing, ConfigKind.NOTE_CATEGORY, "personal", "Personal", null, 1, true);
         option(owner, existing, ConfigKind.NOTE_CATEGORY, "work", "Trabajo", null, 2, true);

@@ -11,7 +11,7 @@ import org.springframework.data.repository.query.Param;
 public interface FinanceMovementRepository extends JpaRepository<FinanceMovement, UUID>, JpaSpecificationExecutor<FinanceMovement> {
     Optional<FinanceMovement> findByIdAndOwnerIdAndDeletedAtIsNull(UUID id, UUID owner);
     long countByOwnerIdAndDeletedAtIsNull(UUID owner);
-    @Query("select m.bucket as bucket, coalesce(sum(m.amountArs), 0) as total from FinanceMovement m where m.ownerId = :owner and m.deletedAt is null and m.date between :from and :to group by m.bucket")
+    @Query("select m.bucket as bucket, coalesce(sum(m.amountArs), 0) as total from FinanceMovement m where m.ownerId = :owner and m.deletedAt is null and lower(m.accountCode) = 'mercadopago' and m.date between :from and :to group by m.bucket")
     List<SummaryRow> summarize(@Param("owner") UUID owner, @Param("from") LocalDate from, @Param("to") LocalDate to);
     @Query("select m.date as date, m.bucket as bucket, coalesce(sum(m.amountArs), 0) as total from FinanceMovement m where m.ownerId = :owner and m.deletedAt is null and m.date between :from and :to group by m.date, m.bucket order by m.date asc")
     List<DailySummaryRow> summarizeDaily(@Param("owner") UUID owner, @Param("from") LocalDate from, @Param("to") LocalDate to);

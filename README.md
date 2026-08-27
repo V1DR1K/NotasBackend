@@ -45,15 +45,15 @@ Finanzas: `GET/POST /api/finance/movements`, `GET/PATCH/DELETE /api/finance/move
 
 La analítica financiera devuelve los totales diarios de ingresos y egresos, además de las sumas agrupadas por `itemCode` para cada bucket. El rango admite hasta 366 días y excluye movimientos eliminados.
 
-Las cuentas financieras son saldos actuales independientes de los movimientos. `DAILY_TNA` proyecta el saldo con capitalización diaria y `MANUAL` conserva el último saldo sincronizado. Para Tomas se crean de forma idempotente MercadoPago (`58938.11` ARS, `18.5` TNA), Inversiones en pesos (`800000` ARS) y Crypto (`6206454.61` ARS).
+Las cuentas financieras muestran los saldos actuales y los movimientos nuevos los actualizan. `DAILY_TNA` proyecta el saldo con capitalización diaria y `MANUAL` conserva el último saldo sincronizado. Para Tomas se crean de forma idempotente MercadoPago (`58938.11` ARS, `18.5` TNA), Inversiones en pesos (`800000` ARS) y Crypto (`6206454.61` ARS). Un ingreso o egreso de MercadoPago modifica esa caja; una transferencia con una inversión mueve el dinero entre MercadoPago y la inversión seleccionada.
 
 El request de movimiento es:
 
 ```json
-{"date":"2026-08-20","bucket":"EXPENSE","conceptCode":"weekly_purchase","categoryCode":"food","amountArs":12500.00,"note":"Supermercado"}
+{"date":"2026-08-20","bucket":"EXPENSE","accountCode":"mercadopago","itemCode":"supermercado","amountArs":12500.00,"note":"Supermercado"}
 ```
 
-Los buckets validos son exclusivamente `INCOME`, `EXPENSE` e `INVESTED`. GET acepta `bucket`, `date`, `conceptCode`, `categoryCode`, `from`, `to`, `minAmount`, `maxAmount`, `page`, `size` y `sort`. `amountArs` es positivo y la respuesta expone `amount: {ars,usd,exchangeRate}`.
+Los buckets nuevos son `INCOME` y `EXPENSE` (`INVESTED` queda solo para datos históricos). La caja `mercadopago` admite `sueldo` y `otro` como ingresos, y `pedidos_ya`, `comida_afuera`, `supermercado`, `nafta` y `uber_didi` como egresos. Las cuentas de inversión admiten `transferencia` en ambos sentidos. GET acepta `bucket`, `date`, `itemCode`, `from`, `to`, `minAmount`, `maxAmount`, `page`, `size` y `sort`. `amountArs` es positivo y la respuesta expone `accountCode` y `amount: {ars,usd,exchangeRate}`.
 
 La regla de USD es ARS por USD: `usd = ars / exchangeRate`. El snapshot se guarda al crear el movimiento y no se recalcula aunque cambie el proveedor. El summary usa `cash = income - expense - invested`, contiene tambien `exchangeRate` con `currency,buy,sell,average,fetchedAt,source`, y calcula sus valores USD con la cotizacion actual; los movimientos historicos conservan su propio snapshot. El proveedor opcional debe devolver un numero, `{ "rate": 1000 }` o `{ "buy": 990, "sell": 1010 }`; si no existe o falla, se usa el fallback manual persistido y luego `EXCHANGE_RATE_FALLBACK`.
 
