@@ -42,14 +42,14 @@ public class InitialDataSeeder implements CommandLineRunner {
         option(owner, existing, ConfigKind.DAY_FEELING, "triste", "Triste", null, 5, true);
         option(owner, existing, ConfigKind.DAY_FEELING, "estresado", "Estresado", null, 6, true);
         option(owner, existing, ConfigKind.DAY_FEELING, "agradecido", "Agradecido", null, 7, true);
-        option(owner, existing, ConfigKind.FINANCE_ITEM, "sueldo", "Sueldo", null, 0, true);
-        option(owner, existing, ConfigKind.FINANCE_ITEM, "otro", "Otro", null, 1, true);
-        option(owner, existing, ConfigKind.FINANCE_ITEM, "pedidos_ya", "Pedidos Ya", null, 2, true);
-        option(owner, existing, ConfigKind.FINANCE_ITEM, "comida_afuera", "Comida Afuera", null, 3, true);
-        option(owner, existing, ConfigKind.FINANCE_ITEM, "supermercado", "Supermercado", null, 4, true);
-        option(owner, existing, ConfigKind.FINANCE_ITEM, "nafta", "Nafta", null, 5, true);
-        option(owner, existing, ConfigKind.FINANCE_ITEM, "uber_didi", "Uber/Didi", null, 6, true);
-        option(owner, existing, ConfigKind.FINANCE_ITEM, "transferencia", "Transferencia", null, 7, true);
+        option(owner, existing, ConfigKind.FINANCE_ITEM, "sueldo", "Sueldo", null, 0, true, FinanceItemType.INCOME);
+        option(owner, existing, ConfigKind.FINANCE_ITEM, "otro", "Otro", null, 1, true, FinanceItemType.INCOME);
+        option(owner, existing, ConfigKind.FINANCE_ITEM, "pedidos_ya", "Pedidos Ya", null, 2, true, FinanceItemType.EXPENSE);
+        option(owner, existing, ConfigKind.FINANCE_ITEM, "comida_afuera", "Comida Afuera", null, 3, true, FinanceItemType.EXPENSE);
+        option(owner, existing, ConfigKind.FINANCE_ITEM, "supermercado", "Supermercado", null, 4, true, FinanceItemType.EXPENSE);
+        option(owner, existing, ConfigKind.FINANCE_ITEM, "nafta", "Nafta", null, 5, true, FinanceItemType.EXPENSE);
+        option(owner, existing, ConfigKind.FINANCE_ITEM, "uber_didi", "Uber/Didi", null, 6, true, FinanceItemType.EXPENSE);
+        option(owner, existing, ConfigKind.FINANCE_ITEM, "transferencia", "Transferencia", null, 7, true, FinanceItemType.TRANSFER);
         option(owner, existing, ConfigKind.NOTE_CATEGORY, "ideas", "Ideas", null, 0, true);
         option(owner, existing, ConfigKind.NOTE_CATEGORY, "personal", "Personal", null, 1, true);
         option(owner, existing, ConfigKind.NOTE_CATEGORY, "work", "Trabajo", null, 2, true);
@@ -62,7 +62,10 @@ public class InitialDataSeeder implements CommandLineRunner {
         option(owner, existing, ConfigKind.NOTE_CATEGORY, "inspiration", "Inspiración", null, 9, true);
     }
     private void option(java.util.UUID owner, Set<String> existing, ConfigKind kind, String code, String label, String emoji, int order, boolean active) {
+        option(owner, existing, kind, code, label, emoji, order, active, null);
+    }
+    private void option(java.util.UUID owner, Set<String> existing, ConfigKind kind, String code, String label, String emoji, int order, boolean active, FinanceItemType financeType) {
         if (!existing.add(kind + ":" + code.toLowerCase())) return;
-        ConfigItem item = new ConfigItem(); item.setOwnerId(owner); item.setKind(kind); item.setCode(code); item.setLabel(label); item.setEmoji(emoji); item.setSortOrder(order); item.setActive(active); config.save(item);
+        ConfigItem item = new ConfigItem(); item.setOwnerId(owner); item.setKind(kind); item.setCode(code); item.setLabel(label); item.setEmoji(emoji); item.setSortOrder(order); item.setActive(active); item.setFinanceType(financeType); config.save(item);
     }
 }

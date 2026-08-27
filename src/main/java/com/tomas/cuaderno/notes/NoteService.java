@@ -27,7 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
             spec = spec.and((r, q, c) -> c.or(c.like(c.lower(r.get("title")), pattern, '\\'), c.like(c.lower(r.get("body")), pattern, '\\')));
         }
         Page<Note> result = repository.findAll(spec, page);
-        Map<String, ConfigurationDtos.ConfigOptionResponse> categories = configuration.index(owner, ConfigKind.NOTE_CATEGORY);
+        Map<String, ConfigurationDtos.ConfigOptionResponse> categories = configuration.indexIncludingDeleted(owner, ConfigKind.NOTE_CATEGORY);
         return PageResponse.from(result.map(x -> response(x, categories)));
     }
     public NoteDtos.Response get(UUID owner, UUID id) { return response(owner, repository.findByIdAndOwnerIdAndDeletedAtIsNull(id, owner).orElseThrow(() -> new NotFoundException("Note not found"))); }
@@ -38,7 +38,7 @@ import org.springframework.transaction.annotation.Transactional;
     private void validateCategory(UUID owner, String code) { configuration.requireActive(owner, ConfigKind.NOTE_CATEGORY, code, "categoryCode"); }
     private String normalize(String value) { return value == null ? null : value.trim(); }
     private String escapeLike(String value) { return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_"); }
-    private NoteDtos.Response response(UUID owner, Note item) { return response(item, configuration.index(owner, ConfigKind.NOTE_CATEGORY)); }
+    private NoteDtos.Response response(UUID owner, Note item) { return response(item, configuration.indexIncludingDeleted(owner, ConfigKind.NOTE_CATEGORY)); }
     private NoteDtos.Response response(Note item, Map<String, ConfigurationDtos.ConfigOptionResponse> categories) {
         ConfigurationDtos.ConfigOptionResponse category = item.getCategoryCode() == null ? null : categories.get(item.getCategoryCode().toLowerCase(Locale.ROOT));
         if (item.getCategoryCode() != null && category == null) throw new NotFoundException("Configuration option not found");

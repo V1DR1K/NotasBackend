@@ -8,6 +8,7 @@ import java.util.UUID;
 public class FileMetadata extends AuditableEntity {
     @Column(name = "folder_id") private UUID folderId;
     @Column(nullable = false, length = 255) private String name;
+    @Column(nullable = false, length = 255) private String description;
     @Column(nullable = false, length = 32) private String extension;
     @Column(name = "mime_type", nullable = false, length = 150) private String mimeType;
     @Enumerated(EnumType.STRING) @Column(nullable = false, length = 20) private FileKind kind;
@@ -16,6 +17,7 @@ public class FileMetadata extends AuditableEntity {
     @Column(nullable = false, length = 128) private String checksum;
     public UUID getFolderId() { return folderId; } public void setFolderId(UUID v) { folderId = v; }
     public String getName() { return name; } public void setName(String v) { name = v; }
+    public String getDescription() { return description; } public void setDescription(String v) { description = v; }
     public String getExtension() { return extension; } public void setExtension(String v) { extension = v; }
     public String getMimeType() { return mimeType; } public void setMimeType(String v) { mimeType = v; }
     public FileKind getKind() { return kind; } public void setKind(FileKind v) { kind = v; }
