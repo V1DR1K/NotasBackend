@@ -11,6 +11,7 @@ public class AuthProperties {
     private String audience;
     private boolean requireAudience;
     private int clientTimeoutMs = 3000;
+    private int refreshCookieDays = 30;
 
     public String getServiceUrl() { return serviceUrl; }
     public void setServiceUrl(String value) { serviceUrl = value; }
@@ -26,4 +27,6 @@ public class AuthProperties {
     public void setRequireAudience(boolean value) { requireAudience = value; }
     public int getClientTimeoutMs() { return clientTimeoutMs; }
     public void setClientTimeoutMs(int value) { clientTimeoutMs = value; }
+    public int getRefreshCookieDays() { return refreshCookieDays; }
+    public void setRefreshCookieDays(int value) { refreshCookieDays = value; }
 }
