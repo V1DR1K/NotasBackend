@@ -5,6 +5,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import java.time.Duration;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
@@ -18,6 +19,7 @@ public class AuthController {
     private final LocalUserProvisioningService provisioning;
     private final AuthProperties properties;
 
+    @Autowired
     public AuthController(CentralAuthClient central, LocalUserProvisioningService provisioning, AuthProperties properties) {
         this.central = central; this.provisioning = provisioning; this.properties = properties;
     }
