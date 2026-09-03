@@ -47,6 +47,7 @@ import org.springframework.web.multipart.MultipartFile;
     public Download download(UUID owner, UUID id) { FileMetadata item = file(owner, id); Resource resource = storage.load(item.getStorageKey()); if (!resource.exists() || !resource.isReadable()) throw new NotFoundException("File content not found"); return new Download(item, resource); }
     @Transactional public void delete(UUID owner, UUID id) { FileMetadata item = file(owner, id); item.setDeletedAt(Instant.now()); try { storage.delete(item.getStorageKey()); } catch (IOException ex) { throw new BadRequestException("Could not delete file content"); } }
     public long count(UUID owner) { return files.countByOwnerIdAndDeletedAtIsNull(owner); }
+    public StorageUsage storageUsage(UUID owner) { return new StorageUsage(files.sumSizeByOwnerIdAndDeletedAtIsNull(owner), properties.getMaxUserBytes()); }
     private FileFolder folder(UUID owner, UUID id) { return folders.findByIdAndOwnerIdAndDeletedAtIsNull(id, owner).orElseThrow(() -> new NotFoundException("Folder not found")); }
     private FileMetadata file(UUID owner, UUID id) { return files.findByIdAndOwnerIdAndDeletedAtIsNull(id, owner).orElseThrow(() -> new NotFoundException("File not found")); }
     private String cleanName(String name) { if (name == null || name.isBlank()) throw new BadRequestException("File name is required"); String clean = java.nio.file.Paths.get(name).getFileName().toString(); if (clean.contains("..") || clean.chars().anyMatch(Character::isISOControl)) throw new BadRequestException("Invalid file name"); return clean; }
@@ -72,4 +73,5 @@ import org.springframework.web.multipart.MultipartFile;
     private FileDtos.FileResponse response(UUID owner, FileMetadata x, Map<UUID, FileDtos.FolderResponse> folderCache) { return response(x, folderCache.isEmpty() ? folderResponses(owner, x.getFolderId() == null ? List.of() : List.of(x.getFolderId())) : folderCache); }
     private FileDtos.FileResponse response(FileMetadata x, Map<UUID, FileDtos.FolderResponse> folderCache) { FileDtos.FolderResponse folder = x.getFolderId() == null ? null : folderCache.get(x.getFolderId()); return new FileDtos.FileResponse(x.getId(), x.getName(), x.getDescription(), x.getExtension(), x.getMimeType(), x.getSizeBytes(), x.getKind(), folder, "/api/files/" + x.getId() + "/download", x.getUploadedAt(), x.getUpdatedAt()); }
     public record Download(FileMetadata metadata, Resource resource) {}
+    public record StorageUsage(long usedBytes, long quotaBytes) {}
 }

@@ -50,6 +50,20 @@ public class DayService {
 
     public long count(UUID owner) { return repository.countByOwnerIdAndDeletedAtIsNull(owner); }
 
+    public long count(UUID owner, LocalDate from, LocalDate to) {
+        return repository.countByOwnerIdAndDeletedAtIsNullAndDateBetween(owner, from, to);
+    }
+
+    public long countPendingAnalysis(UUID owner, LocalDate from, LocalDate to) {
+        return repository.countByOwnerIdAndDeletedAtIsNullAndDateBetweenAndAnalysisStatus(owner, from, to, DayAnalysisStatus.PENDING);
+    }
+
+    public DayDtos.Response today(UUID owner, LocalDate date) {
+        return repository.findByOwnerIdAndDateAndDeletedAtIsNull(owner, date)
+                .map(item -> response(owner, item))
+                .orElse(null);
+    }
+
     @Transactional
     public DayDtos.Response create(UUID owner, DayDtos.CreateRequest request) {
         DayEntry item = new DayEntry();

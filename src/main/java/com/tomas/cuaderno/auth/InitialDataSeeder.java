@@ -60,6 +60,10 @@ public class InitialDataSeeder implements CommandLineRunner {
         option(owner, existing, ConfigKind.NOTE_CATEGORY, "reminders", "Recordatorios", null, 7, true);
         option(owner, existing, ConfigKind.NOTE_CATEGORY, "important", "Importante", null, 8, true);
         option(owner, existing, ConfigKind.NOTE_CATEGORY, "inspiration", "Inspiración", null, 9, true);
+        option(owner, existing, ConfigKind.EVENT_CATEGORY, "laburo", "Laburo", null, 0, true);
+        option(owner, existing, ConfigKind.EVENT_CATEGORY, "facultad", "Facultad", null, 1, true);
+        option(owner, existing, ConfigKind.EVENT_CATEGORY, "medico", "Médico", null, 2, true);
+        option(owner, existing, ConfigKind.EVENT_CATEGORY, "tramites", "Trámites", null, 3, true);
     }
     private void option(java.util.UUID owner, Set<String> existing, ConfigKind kind, String code, String label, String emoji, int order, boolean active) {
         option(owner, existing, kind, code, label, emoji, order, active, null);
