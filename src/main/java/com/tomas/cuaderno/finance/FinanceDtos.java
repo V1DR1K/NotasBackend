@@ -22,4 +22,5 @@ public final class FinanceDtos {
     public record CategorySummary(String itemCode, BigDecimal total) {}
     public record AccountResponse(String code, String label, FinanceAccountType type, BigDecimal balanceArs, BigDecimal annualRatePercent, FinanceAccountGrowthMode growthMode, Instant balanceAsOf) {}
     public record AccountSyncRequest(@NotNull @DecimalMin(value = "0.00") BigDecimal balanceArs) {}
+    public record CryptoTransferRequest(@NotNull LocalDate date, @NotNull @DecimalMin(value = "0.01") BigDecimal amountArs, @Size(max = 1000) String note) {}
 }
