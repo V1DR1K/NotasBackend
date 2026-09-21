@@ -19,6 +19,10 @@ import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -74,5 +78,28 @@ class TaskServiceTest {
 
         assertThat(result.status()).isEqualTo(TaskStatus.COMPLETED);
         assertThat(result.dueDate()).isNull();
+    }
+
+    @Test
+    void listTasks_whenFilteringByDueDate_shouldReturnMatchingTaskResponses() {
+        UUID owner = UUID.randomUUID();
+        LocalDate dueDate = LocalDate.of(2026, 10, 15);
+        Task task = new Task();
+        task.setOwnerId(owner);
+        task.setTitle("Entregar informe");
+        task.setCategoryCode("laburo");
+        task.setStatus(TaskStatus.COMPLETED);
+        task.setDueDate(dueDate);
+        var category = new ConfigurationDtos.ConfigOptionResponse("laburo", "Laburo", null, 0, true, null);
+        var pageable = PageRequest.of(0, 100, Sort.by(Sort.Direction.ASC, "dueDate"));
+        when(configuration.indexIncludingDeleted(owner, ConfigKind.TASK_CATEGORY)).thenReturn(Map.of("laburo", category));
+        when(repository.findAll(any(Specification.class), eq(pageable))).thenReturn(new PageImpl<>(java.util.List.of(task), pageable, 1));
+
+        var result = service.list(owner, null, null, LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31), pageable);
+
+        assertThat(result.content()).hasSize(1);
+        assertThat(result.content().getFirst().status()).isEqualTo(TaskStatus.COMPLETED);
+        assertThat(result.content().getFirst().dueDate()).isEqualTo(dueDate);
+        verify(repository).findAll(any(Specification.class), eq(pageable));
     }
 }

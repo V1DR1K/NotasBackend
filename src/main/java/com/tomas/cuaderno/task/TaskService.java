@@ -31,13 +31,15 @@ public class TaskService {
         this.configuration = configuration;
     }
 
-    public PageResponse<TaskDtos.Response> list(UUID owner, TaskStatus status, String categoryCode, Pageable pageable) {
+    public PageResponse<TaskDtos.Response> list(UUID owner, TaskStatus status, String categoryCode, LocalDate from, LocalDate to, Pageable pageable) {
         Specification<Task> spec = activeFor(owner);
         if (status != null) spec = spec.and((root, query, cb) -> cb.equal(root.get("status"), status));
         if (categoryCode != null && !categoryCode.isBlank()) {
             String normalized = categoryCode.trim().toLowerCase(Locale.ROOT);
             spec = spec.and((root, query, cb) -> cb.equal(cb.lower(root.get("categoryCode")), normalized));
         }
+        if (from != null) spec = spec.and((root, query, cb) -> cb.greaterThanOrEqualTo(root.get("dueDate"), from));
+        if (to != null) spec = spec.and((root, query, cb) -> cb.lessThanOrEqualTo(root.get("dueDate"), to));
         Map<String, ConfigurationDtos.ConfigOptionResponse> categories = configuration.indexIncludingDeleted(owner, ConfigKind.TASK_CATEGORY);
         return PageResponse.from(repository.findAll(spec, pageable).map(task -> response(task, categories)));
     }
