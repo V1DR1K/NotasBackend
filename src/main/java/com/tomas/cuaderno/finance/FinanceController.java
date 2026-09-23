@@ -30,6 +30,10 @@ import org.springframework.web.bind.annotation.*;
     @GetMapping("/crypto/investments") public List<CryptoDtos.InvestmentResponse> cryptoInvestments() { return crypto.list(CurrentUser.id()); }
     @GetMapping("/crypto/summary") public CryptoDtos.Summary cryptoSummary() { return crypto.summary(CurrentUser.id()); }
     @PostMapping("/crypto/investments") @ResponseStatus(HttpStatus.CREATED) public CryptoDtos.InvestmentResponse invest(@Valid @RequestBody CryptoDtos.CreateRequest request) { return crypto.create(CurrentUser.id(), request); }
-    @DeleteMapping("/crypto/investments/{id}") @ResponseStatus(HttpStatus.NO_CONTENT) public void deleteInvestment(@PathVariable UUID id) { crypto.delete(CurrentUser.id(), id); }
+    @PatchMapping("/crypto/investments/{id}/unit-price") public CryptoDtos.InvestmentResponse completeCryptoPrice(@PathVariable UUID id, @Valid @RequestBody CryptoDtos.LegacyPriceRequest request) { return crypto.completeLegacyPrice(CurrentUser.id(), id, request); }
+    @PostMapping("/crypto/investments/{id}/sales") @ResponseStatus(HttpStatus.CREATED) public CryptoDtos.SaleResponse sellCrypto(@PathVariable UUID id, @Valid @RequestBody CryptoDtos.SellRequest request) { return crypto.sell(CurrentUser.id(), id, request); }
+    @PostMapping("/crypto/investments/{id}/sales/{saleId}/void") @ResponseStatus(HttpStatus.NO_CONTENT) public void voidCryptoSale(@PathVariable UUID id, @PathVariable UUID saleId) { crypto.voidSale(CurrentUser.id(), id, saleId); }
+    @PostMapping("/crypto/investments/{id}/void") @ResponseStatus(HttpStatus.NO_CONTENT) public void voidInvestment(@PathVariable UUID id) { crypto.voidPurchase(CurrentUser.id(), id); }
+    @DeleteMapping("/crypto/investments/{id}") @ResponseStatus(HttpStatus.NO_CONTENT) public void deleteInvestment(@PathVariable UUID id) { crypto.voidPurchase(CurrentUser.id(), id); }
     @PostMapping("/exchange-rate/usd") @PreAuthorize("hasRole('ADMIN')") public FinanceDtos.ExchangeRateResponse fallback(@Valid @RequestBody FinanceDtos.FallbackRequest request) { return rates.setFallback(CurrentUser.id(), request); }
 }

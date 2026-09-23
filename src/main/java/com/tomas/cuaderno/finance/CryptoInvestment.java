@@ -28,6 +28,12 @@ public class CryptoInvestment extends AuditableEntity {
     @Column(name = "exchange_rate_snapshot", nullable = false, precision = 19, scale = 8)
     private BigDecimal exchangeRateSnapshot;
 
+    @Column(name = "unit_price_usd", precision = 28, scale = 12)
+    private BigDecimal unitPriceUsd;
+
+    @Column(name = "quantity", precision = 28, scale = 18)
+    private BigDecimal quantity;
+
     @Column(name = "source_key", length = 80)
     private String sourceKey;
 
@@ -44,6 +50,10 @@ public class CryptoInvestment extends AuditableEntity {
     public void setAmountArs(BigDecimal value) { amountArs = value; }
     public BigDecimal getExchangeRateSnapshot() { return exchangeRateSnapshot; }
     public void setExchangeRateSnapshot(BigDecimal value) { exchangeRateSnapshot = value; }
+    public BigDecimal getUnitPriceUsd() { return unitPriceUsd; }
+    public void setUnitPriceUsd(BigDecimal value) { unitPriceUsd = value; }
+    public BigDecimal getQuantity() { return quantity; }
+    public void setQuantity(BigDecimal value) { quantity = value; }
     public String getSourceKey() { return sourceKey; }
     public void setSourceKey(String value) { sourceKey = value; }
     public String getNote() { return note; }

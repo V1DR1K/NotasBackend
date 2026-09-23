@@ -1,6 +1,7 @@
 package com.tomas.cuaderno.finance;
 
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -16,7 +17,16 @@ public final class CryptoDtos {
     public record CreateRequest(
             @NotNull LocalDate date,
             @NotBlank @Size(max = 20) String assetCode,
-            @NotNull @DecimalMin(value = "0.00000001") BigDecimal amountUsd,
+            @NotNull @DecimalMin(value = "0.00000001") @Digits(integer = 11, fraction = 8) BigDecimal amountUsd,
+            @NotNull @DecimalMin(value = "0.000000000001") @Digits(integer = 16, fraction = 12) BigDecimal unitPriceUsd,
+            @Size(max = 1000) String note) {}
+
+    public record LegacyPriceRequest(@NotNull @DecimalMin(value = "0.000000000001") @Digits(integer = 16, fraction = 12) BigDecimal unitPriceUsd) {}
+
+    public record SellRequest(
+            @NotNull LocalDate date,
+            @NotNull @DecimalMin(value = "0.000000000000000001") @Digits(integer = 10, fraction = 18) BigDecimal quantity,
+            @NotNull @DecimalMin(value = "0.00000001") @Digits(integer = 11, fraction = 8) BigDecimal proceedsUsd,
             @Size(max = 1000) String note) {}
 
     public record MoneyResponse(BigDecimal ars, BigDecimal usd, BigDecimal exchangeRate) {}
@@ -27,6 +37,27 @@ public final class CryptoDtos {
             String assetCode,
             String assetLabel,
             MoneyResponse amount,
+            BigDecimal unitPriceUsd,
+            BigDecimal quantity,
+            BigDecimal remainingQuantity,
+            MoneyResponse remainingCostBasis,
+            boolean voided,
+            List<SaleResponse> sales,
+            String note,
+            Instant createdAt) {}
+
+    public record SaleResponse(
+            UUID id,
+            UUID investmentId,
+            LocalDate date,
+            BigDecimal quantity,
+            BigDecimal proceedsUsd,
+            BigDecimal unitPriceUsd,
+            BigDecimal costBasisUsd,
+            BigDecimal costBasisArs,
+            BigDecimal realizedProfitUsd,
+            BigDecimal exchangeRate,
+            boolean voided,
             String note,
             Instant createdAt) {}
 
@@ -35,11 +66,13 @@ public final class CryptoDtos {
             String assetLabel,
             BigDecimal investedUsd,
             BigDecimal investedArs,
+            BigDecimal quantity,
             long purchases) {}
 
     public record Summary(
             MoneyResponse invested,
             MoneyResponse available,
+            BigDecimal realizedProfitUsd,
             List<Position> positions,
             List<InvestmentResponse> investments,
             FinanceDtos.ExchangeRateResponse exchangeRate) {}
