@@ -31,7 +31,7 @@ public class TaskService {
         this.configuration = configuration;
     }
 
-    public PageResponse<TaskDtos.Response> list(UUID owner, TaskStatus status, String categoryCode, LocalDate from, LocalDate to, Pageable pageable) {
+    public PageResponse<TaskDtos.Response> list(UUID owner, TaskStatus status, String categoryCode, LocalDate from, LocalDate to, Instant completedAfter, Instant completedBefore, Pageable pageable) {
         Specification<Task> spec = activeFor(owner);
         if (status != null) spec = spec.and((root, query, cb) -> cb.equal(root.get("status"), status));
         if (categoryCode != null && !categoryCode.isBlank()) {
@@ -40,6 +40,8 @@ public class TaskService {
         }
         if (from != null) spec = spec.and((root, query, cb) -> cb.greaterThanOrEqualTo(root.get("dueDate"), from));
         if (to != null) spec = spec.and((root, query, cb) -> cb.lessThanOrEqualTo(root.get("dueDate"), to));
+        if (completedAfter != null) spec = spec.and((root, query, cb) -> cb.greaterThanOrEqualTo(root.get("completedAt"), completedAfter));
+        if (completedBefore != null) spec = spec.and((root, query, cb) -> cb.lessThan(root.get("completedAt"), completedBefore));
         Map<String, ConfigurationDtos.ConfigOptionResponse> categories = configuration.indexIncludingDeleted(owner, ConfigKind.TASK_CATEGORY);
         return PageResponse.from(repository.findAll(spec, pageable).map(task -> response(task, categories)));
     }
@@ -56,6 +58,7 @@ public class TaskService {
         task.setTitle(request.title().trim());
         task.setDetail(cleanDetail(request.detail()));
         task.setStatus(request.status() == null ? TaskStatus.PENDING : request.status());
+        if (task.getStatus() == TaskStatus.COMPLETED) task.setCompletedAt(Instant.now());
         task.setCategoryCode(normalize(request.categoryCode()));
         task.setDueDate(request.dueDate());
         Task saved = repository.save(task);
@@ -74,7 +77,10 @@ public class TaskService {
             configuration.requireActive(owner, ConfigKind.TASK_CATEGORY, request.categoryCode(), "categoryCode");
             task.setCategoryCode(normalize(request.categoryCode()));
         }
-        if (request.status() != null) task.setStatus(request.status());
+        if (request.status() != null && request.status() != task.getStatus()) {
+            task.setStatus(request.status());
+            task.setCompletedAt(request.status() == TaskStatus.COMPLETED ? Instant.now() : null);
+        }
         if (request.dueDate() != null) task.setDueDate(parseDueDate(request.dueDate()));
         return response(task, configuration.indexIncludingDeleted(owner, ConfigKind.TASK_CATEGORY));
     }
@@ -114,7 +120,7 @@ public class TaskService {
     private TaskDtos.Response response(Task task, Map<String, ConfigurationDtos.ConfigOptionResponse> categories) {
         ConfigurationDtos.ConfigOptionResponse category = categories.get(task.getCategoryCode().toLowerCase(Locale.ROOT));
         if (category == null) throw new NotFoundException("Configuration option not found");
-        return new TaskDtos.Response(task.getId(), task.getTitle(), task.getDetail(), task.getStatus(), category, task.getDueDate(), task.getCreatedAt(), task.getUpdatedAt());
+        return new TaskDtos.Response(task.getId(), task.getTitle(), task.getDetail(), task.getStatus(), category, task.getDueDate(), task.getCreatedAt(), task.getUpdatedAt(), task.getCompletedAt());
     }
 
     private String normalize(String value) { return value.trim(); }

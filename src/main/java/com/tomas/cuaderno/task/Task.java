@@ -6,6 +6,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
+import java.time.Instant;
 import java.time.LocalDate;
 
 @Entity
@@ -27,6 +28,9 @@ public class Task extends AuditableEntity {
     @Column(name = "due_date")
     private LocalDate dueDate;
 
+    @Column(name = "completed_at")
+    private Instant completedAt;
+
     public String getTitle() { return title; }
     public void setTitle(String value) { title = value; }
     public String getDetail() { return detail; }
@@ -37,4 +41,6 @@ public class Task extends AuditableEntity {
     public void setCategoryCode(String value) { categoryCode = value; }
     public LocalDate getDueDate() { return dueDate; }
     public void setDueDate(LocalDate value) { dueDate = value; }
+    public Instant getCompletedAt() { return completedAt; }
+    public void setCompletedAt(Instant value) { completedAt = value; }
 }

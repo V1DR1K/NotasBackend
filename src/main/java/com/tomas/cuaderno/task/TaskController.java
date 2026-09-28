@@ -3,6 +3,7 @@ package com.tomas.cuaderno.task;
 import com.tomas.cuaderno.common.pagination.PageResponse;
 import com.tomas.cuaderno.common.security.CurrentUser;
 import jakarta.validation.Valid;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.UUID;
 import org.springframework.data.domain.Pageable;
@@ -33,8 +34,10 @@ public class TaskController {
             @RequestParam(required = false) String categoryCode,
             @RequestParam(required = false) LocalDate from,
             @RequestParam(required = false) LocalDate to,
+            @RequestParam(required = false) Instant completedAfter,
+            @RequestParam(required = false) Instant completedBefore,
             @PageableDefault(size = 100, sort = "dueDate", direction = Sort.Direction.ASC) Pageable page) {
-        return service.list(CurrentUser.id(), status, categoryCode, from, to, page);
+        return service.list(CurrentUser.id(), status, categoryCode, from, to, completedAfter, completedBefore, page);
     }
 
     @GetMapping("/{id}")

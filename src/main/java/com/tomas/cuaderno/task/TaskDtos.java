@@ -34,7 +34,8 @@ public final class TaskDtos {
             ConfigOptionResponse category,
             LocalDate dueDate,
             Instant createdAt,
-            Instant updatedAt) {}
+            Instant updatedAt,
+            Instant completedAt) {}
 
     public record Stats(long pending, long inProgress, long completed, long overdue) {}
 

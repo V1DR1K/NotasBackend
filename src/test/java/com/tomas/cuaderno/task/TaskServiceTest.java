@@ -14,6 +14,7 @@ import com.tomas.cuaderno.configuration.ConfigKind;
 import com.tomas.cuaderno.configuration.ConfigurationDtos;
 import com.tomas.cuaderno.configuration.ConfigurationService;
 import java.time.LocalDate;
+import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -49,6 +50,19 @@ class TaskServiceTest {
     }
 
     @Test
+    void createTask_whenCreatedCompleted_shouldRecordCompletionTime() {
+        UUID owner = UUID.randomUUID();
+        var category = new ConfigurationDtos.ConfigOptionResponse("laburo", "Laburo", null, 0, true, null);
+        when(configuration.indexIncludingDeleted(owner, ConfigKind.TASK_CATEGORY)).thenReturn(Map.of("laburo", category));
+        when(repository.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        var result = service.create(owner, new TaskDtos.CreateRequest("Entregar informe", null, "laburo", TaskStatus.COMPLETED, null));
+
+        assertThat(result.status()).isEqualTo(TaskStatus.COMPLETED);
+        assertThat(result.completedAt()).isNotNull();
+    }
+
+    @Test
     void createTask_whenCategoryIsInactive_shouldRejectRequest() {
         UUID owner = UUID.randomUUID();
         when(configuration.requireActive(eq(owner), eq(ConfigKind.TASK_CATEGORY), eq("otra"), eq("categoryCode")))
@@ -77,7 +91,48 @@ class TaskServiceTest {
         var result = service.patch(owner, id, new TaskDtos.PatchRequest(null, null, null, TaskStatus.COMPLETED, NullNode.getInstance()));
 
         assertThat(result.status()).isEqualTo(TaskStatus.COMPLETED);
+        assertThat(result.completedAt()).isNotNull();
         assertThat(result.dueDate()).isNull();
+    }
+
+    @Test
+    void patchTask_whenCompletedTaskIsEdited_shouldPreserveCompletionTime() {
+        UUID owner = UUID.randomUUID();
+        UUID id = UUID.randomUUID();
+        Instant completedAt = Instant.parse("2026-09-20T12:00:00Z");
+        Task task = completedTask(owner, completedAt);
+        var category = new ConfigurationDtos.ConfigOptionResponse("laburo", "Laburo", null, 0, true, null);
+        when(repository.findById(id)).thenReturn(Optional.of(task));
+        when(configuration.indexIncludingDeleted(owner, ConfigKind.TASK_CATEGORY)).thenReturn(Map.of("laburo", category));
+
+        var result = service.patch(owner, id, new TaskDtos.PatchRequest("Título actualizado", null, null, null, null));
+
+        assertThat(result.completedAt()).isEqualTo(completedAt);
+    }
+
+    @Test
+    void patchTask_whenCompletedTaskIsReopened_shouldClearCompletionTime() {
+        UUID owner = UUID.randomUUID();
+        UUID id = UUID.randomUUID();
+        Task task = completedTask(owner, Instant.parse("2026-09-20T12:00:00Z"));
+        var category = new ConfigurationDtos.ConfigOptionResponse("laburo", "Laburo", null, 0, true, null);
+        when(repository.findById(id)).thenReturn(Optional.of(task));
+        when(configuration.indexIncludingDeleted(owner, ConfigKind.TASK_CATEGORY)).thenReturn(Map.of("laburo", category));
+
+        var result = service.patch(owner, id, new TaskDtos.PatchRequest(null, null, null, TaskStatus.IN_PROGRESS, null));
+
+        assertThat(result.status()).isEqualTo(TaskStatus.IN_PROGRESS);
+        assertThat(result.completedAt()).isNull();
+    }
+
+    private Task completedTask(UUID owner, Instant completedAt) {
+        Task task = new Task();
+        task.setOwnerId(owner);
+        task.setTitle("Tarea");
+        task.setCategoryCode("laburo");
+        task.setStatus(TaskStatus.COMPLETED);
+        task.setCompletedAt(completedAt);
+        return task;
     }
 
     @Test
@@ -95,7 +150,7 @@ class TaskServiceTest {
         when(configuration.indexIncludingDeleted(owner, ConfigKind.TASK_CATEGORY)).thenReturn(Map.of("laburo", category));
         when(repository.findAll(any(Specification.class), eq(pageable))).thenReturn(new PageImpl<>(java.util.List.of(task), pageable, 1));
 
-        var result = service.list(owner, null, null, LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31), pageable);
+        var result = service.list(owner, null, null, LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31), null, null, pageable);
 
         assertThat(result.content()).hasSize(1);
         assertThat(result.content().getFirst().status()).isEqualTo(TaskStatus.COMPLETED);
