@@ -31,7 +31,7 @@ class CalendarEventServiceTest {
     void createEvent_whenCategoryIsActive_shouldPersistEvent() {
         UUID owner = UUID.randomUUID();
         LocalDate date = LocalDate.of(2026, 8, 31);
-        var request = new CalendarEventDtos.CreateRequest(date, "Presentar el trabajo", "laburo");
+        var request = new CalendarEventDtos.CreateRequest(date, "Presentar el trabajo", "laburo", "laburo");
         var category = new ConfigurationDtos.ConfigOptionResponse("laburo", "Laburo", null, 0, true, null);
         when(configuration.indexIncludingDeleted(owner, ConfigKind.EVENT_CATEGORY)).thenReturn(Map.of("laburo", category));
         when(repository.save(any(CalendarEvent.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -52,7 +52,7 @@ class CalendarEventServiceTest {
                 .thenThrow(new BadRequestException("Unknown or inactive categoryCode"));
 
         assertThatThrownBy(() -> service.create(owner, new CalendarEventDtos.CreateRequest(
-                LocalDate.of(2026, 8, 31), "Turno", "medico")))
+                LocalDate.of(2026, 8, 31), "Turno", "medico", null)))
                 .isInstanceOf(BadRequestException.class)
                 .hasMessageContaining("inactive");
         verify(repository, never()).save(any(CalendarEvent.class));

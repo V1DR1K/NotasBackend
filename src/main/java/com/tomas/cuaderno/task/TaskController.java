@@ -32,12 +32,13 @@ public class TaskController {
     public PageResponse<TaskDtos.Response> list(
             @RequestParam(required = false) TaskStatus status,
             @RequestParam(required = false) String categoryCode,
+            @RequestParam(required = false) String projectCode,
             @RequestParam(required = false) LocalDate from,
             @RequestParam(required = false) LocalDate to,
             @RequestParam(required = false) Instant completedAfter,
             @RequestParam(required = false) Instant completedBefore,
             @PageableDefault(size = 100, sort = "dueDate", direction = Sort.Direction.ASC) Pageable page) {
-        return service.list(CurrentUser.id(), status, categoryCode, from, to, completedAfter, completedBefore, page);
+        return service.list(CurrentUser.id(), status, categoryCode, projectCode, from, to, completedAfter, completedBefore, page);
     }
 
     @GetMapping("/{id}")

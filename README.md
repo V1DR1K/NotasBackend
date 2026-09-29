@@ -25,6 +25,10 @@ Auth: `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`,
 
 Configuracion: `GET/POST /api/config/day-statuses`, `PATCH/DELETE /api/config/day-statuses/{code}`; los mismos verbos y forma para `day-feelings`, `finance-items` y `note-categories`. Las modificaciones requieren ADMIN. La respuesta comun es `ConfigOptionResponse(code,label,emoji,sortOrder,active,financeType)` y PATCH es parcial, sin posibilidad de cambiar `code`. Las clasificaciones financieras requieren `financeType`: `INCOME`, `EXPENSE` o `TRANSFER`. Las opciones activas alimentan los formularios y filtros; Transferencia queda reservada para cuentas de inversión.
 
+Proyectos: `GET/POST /api/config/projects` y `PATCH/DELETE /api/config/projects/{code}`. Se crean Personal, Facultad y Laburo para cada usuario. El nombre, orden y disponibilidad se administran como las demás opciones; Personal es el proyecto predeterminado y no se puede desactivar ni eliminar. Tampoco se puede desactivar o eliminar un proyecto con tareas, notas, archivos, carpetas o eventos activos. Los listados de esos recursos aceptan `projectCode`; omitirlo muestra todos los proyectos. Las altas y ediciones aceptan `projectCode`; si falta en un alta se usa Personal.
+
+La migración V19 conserva las filas existentes y asigna Facultad/Laburo según la categoría de tarea, nota o evento y el nombre de carpeta. El resto queda en Personal. Nunca infiere un proyecto a partir del título o cuerpo del registro.
+
 Calendario: `GET/POST /api/events`, `GET/PATCH/DELETE /api/events/{id}`. Los eventos son de día completo y aceptan `date`, `description` y `categoryCode`; se permiten varios eventos en una misma fecha. GET acepta `date`, `from`, `to`, `categoryCode`, `page`, `size` y `sort`. Las categorías se administran con `GET/POST /api/config/event-categories`, `PATCH/DELETE /api/config/event-categories/{code}` y se crean por defecto `Laburo`, `Facultad`, `Médico` y `Trámites`. Las modificaciones de configuración requieren ADMIN.
 
 Mi Dia: `GET/POST /api/day-entries`, `GET/PATCH/DELETE /api/day-entries/{id}` y `POST /api/day-entries/{id}/analyze`. El request de alta es:

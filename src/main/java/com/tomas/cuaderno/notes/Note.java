@@ -11,8 +11,10 @@ public class Note extends AuditableEntity {
     @Column(columnDefinition = "TEXT", nullable = false) private String body;
     @Column(name = "category_code", nullable = false, length = 80) private String categoryCode;
     @Column(name = "date", nullable = false) private LocalDate date;
+    @Column(name = "project_code", nullable = false, length = 80) private String projectCode = "personal";
     public String getTitle() { return title; } public void setTitle(String v) { title = v; }
     public String getBody() { return body; } public void setBody(String v) { body = v; }
     public String getCategoryCode() { return categoryCode; } public void setCategoryCode(String v) { categoryCode = v; }
     public LocalDate getDate() { return date; } public void setDate(LocalDate v) { date = v; }
+    public String getProjectCode() { return projectCode; } public void setProjectCode(String v) { projectCode = v; }
 }

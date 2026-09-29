@@ -31,6 +31,7 @@ public class InitialDataSeeder implements CommandLineRunner {
     }
     private void seed(java.util.UUID owner) {
         Set<String> existing = config.findByOwnerIdAndDeletedAtIsNull(owner).stream().map(item -> item.getKind() + ":" + item.getCode().toLowerCase()).collect(java.util.stream.Collectors.toCollection(HashSet::new));
+        config.findByOwnerIdAndKindOrderBySortOrderAscCodeAsc(owner, ConfigKind.PROJECT).forEach(item -> existing.add(ConfigKind.PROJECT + ":" + item.getCode().toLowerCase()));
         option(owner, existing, ConfigKind.DAY_STATUS, "green", "Verde", "🟢", 0, true);
         option(owner, existing, ConfigKind.DAY_STATUS, "yellow", "Amarillo", "🟡", 1, true);
         option(owner, existing, ConfigKind.DAY_STATUS, "red", "Rojo", "🔴", 2, true);
@@ -51,6 +52,9 @@ public class InitialDataSeeder implements CommandLineRunner {
         option(owner, existing, ConfigKind.FINANCE_ITEM, "uber_didi", "Uber/Didi", null, 6, true, FinanceItemType.EXPENSE);
         option(owner, existing, ConfigKind.FINANCE_ITEM, "transferencia", "Transferencia", null, 7, true, FinanceItemType.TRANSFER);
         option(owner, existing, ConfigKind.NOTE_CATEGORY, "ideas", "Ideas", null, 0, true);
+        option(owner, existing, ConfigKind.PROJECT, "personal", "Personal", null, 0, true);
+        option(owner, existing, ConfigKind.PROJECT, "facultad", "Facultad", null, 1, true);
+        option(owner, existing, ConfigKind.PROJECT, "laburo", "Laburo", null, 2, true);
         option(owner, existing, ConfigKind.NOTE_CATEGORY, "personal", "Personal", null, 1, true);
         option(owner, existing, ConfigKind.NOTE_CATEGORY, "work", "Trabajo", null, 2, true);
         option(owner, existing, ConfigKind.NOTE_CATEGORY, "projects", "Proyectos", null, 3, true);

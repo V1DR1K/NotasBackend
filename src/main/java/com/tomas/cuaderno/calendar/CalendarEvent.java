@@ -14,6 +14,8 @@ public class CalendarEvent extends AuditableEntity {
 
     @Column(name = "category_code", nullable = false, length = 80)
     private String categoryCode;
+    @Column(name = "project_code", nullable = false, length = 80)
+    private String projectCode = "personal";
 
     @Column(nullable = false, length = 1000)
     private String description;
@@ -22,6 +24,8 @@ public class CalendarEvent extends AuditableEntity {
     public void setDate(LocalDate value) { date = value; }
     public String getCategoryCode() { return categoryCode; }
     public void setCategoryCode(String value) { categoryCode = value; }
+    public String getProjectCode() { return projectCode; }
+    public void setProjectCode(String value) { projectCode = value; }
     public String getDescription() { return description; }
     public void setDescription(String value) { description = value; }
 }

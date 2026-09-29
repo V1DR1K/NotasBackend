@@ -30,6 +30,8 @@ public class Task extends AuditableEntity {
 
     @Column(name = "completed_at")
     private Instant completedAt;
+    @Column(name = "project_code", nullable = false, length = 80)
+    private String projectCode = "personal";
 
     public String getTitle() { return title; }
     public void setTitle(String value) { title = value; }
@@ -43,4 +45,6 @@ public class Task extends AuditableEntity {
     public void setDueDate(LocalDate value) { dueDate = value; }
     public Instant getCompletedAt() { return completedAt; }
     public void setCompletedAt(Instant value) { completedAt = value; }
+    public String getProjectCode() { return projectCode; }
+    public void setProjectCode(String value) { projectCode = value; }
 }
