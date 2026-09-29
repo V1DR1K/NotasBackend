@@ -26,7 +26,7 @@ public class CalendarEventService {
         this.configuration = configuration;
     }
 
-    public PageResponse<CalendarEventDtos.Response> list(UUID owner, LocalDate date, LocalDate from, LocalDate to, String categoryCode, Pageable pageable) {
+    public PageResponse<CalendarEventDtos.Response> list(UUID owner, LocalDate date, LocalDate from, LocalDate to, String categoryCode, String projectCode, Pageable pageable) {
         Specification<CalendarEvent> spec = (root, query, cb) -> cb.and(
                 cb.equal(root.get("ownerId"), owner),
                 cb.isNull(root.get("deletedAt")));
@@ -37,6 +37,7 @@ public class CalendarEventService {
             String normalized = categoryCode.trim().toLowerCase(Locale.ROOT);
             spec = spec.and((root, query, cb) -> cb.equal(cb.lower(root.get("categoryCode")), normalized));
         }
+        if (projectCode != null && !projectCode.isBlank()) spec = spec.and((root, query, cb) -> cb.equal(cb.lower(root.get("projectCode")), projectCode.trim().toLowerCase(Locale.ROOT)));
         Map<String, ConfigurationDtos.ConfigOptionResponse> categories = configuration.indexIncludingDeleted(owner, ConfigKind.EVENT_CATEGORY);
         return PageResponse.from(repository.findAll(spec, pageable).map(event -> response(event, categories)));
     }
@@ -53,6 +54,7 @@ public class CalendarEventService {
         event.setDate(request.date());
         event.setDescription(request.description().trim());
         event.setCategoryCode(normalizeAndValidateCategory(owner, request.categoryCode()));
+        event.setProjectCode(configuration.projectCode(owner, request.projectCode()));
         return response(owner, repository.save(event));
     }
 
@@ -65,6 +67,7 @@ public class CalendarEventService {
             event.setDescription(request.description().trim());
         }
         if (request.categoryCode() != null) event.setCategoryCode(normalizeAndValidateCategory(owner, request.categoryCode()));
+        if (request.projectCode() != null) event.setProjectCode(configuration.projectCode(owner, request.projectCode()));
         return response(owner, event);
     }
 
@@ -91,6 +94,6 @@ public class CalendarEventService {
     private CalendarEventDtos.Response response(CalendarEvent event, Map<String, ConfigurationDtos.ConfigOptionResponse> categories) {
         ConfigurationDtos.ConfigOptionResponse category = categories.get(event.getCategoryCode().toLowerCase(Locale.ROOT));
         if (category == null) throw new NotFoundException("Configuration option not found");
-        return new CalendarEventDtos.Response(event.getId(), event.getDate(), event.getDescription(), category, event.getCreatedAt(), event.getUpdatedAt());
+        return new CalendarEventDtos.Response(event.getId(), event.getDate(), event.getDescription(), category, event.getCreatedAt(), event.getUpdatedAt(), event.getProjectCode());
     }
 }

@@ -7,6 +7,7 @@ import java.util.UUID;
 @Entity @Table(name = "files")
 public class FileMetadata extends AuditableEntity {
     @Column(name = "folder_id") private UUID folderId;
+    @Column(name = "project_code", nullable = false, length = 80) private String projectCode = "personal";
     @Column(nullable = false, length = 255) private String name;
     @Column(nullable = false, length = 255) private String description;
     @Column(nullable = false, length = 32) private String extension;
@@ -16,6 +17,7 @@ public class FileMetadata extends AuditableEntity {
     @Column(name = "size_bytes", nullable = false) private long sizeBytes;
     @Column(nullable = false, length = 128) private String checksum;
     public UUID getFolderId() { return folderId; } public void setFolderId(UUID v) { folderId = v; }
+    public String getProjectCode() { return projectCode; } public void setProjectCode(String v) { projectCode = v; }
     public String getName() { return name; } public void setName(String v) { name = v; }
     public String getDescription() { return description; } public void setDescription(String v) { description = v; }
     public String getExtension() { return extension; } public void setExtension(String v) { extension = v; }

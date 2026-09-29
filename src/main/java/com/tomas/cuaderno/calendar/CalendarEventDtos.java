@@ -14,12 +14,14 @@ public final class CalendarEventDtos {
     public record CreateRequest(
             @NotNull LocalDate date,
             @NotBlank @Size(max = 1000) String description,
-            @NotBlank @Size(max = 80) String categoryCode) {}
+            @NotBlank @Size(max = 80) String categoryCode,
+            @Size(max = 80) String projectCode) {}
 
     public record PatchRequest(
             LocalDate date,
             @Size(max = 1000) String description,
-            @Size(max = 80) String categoryCode) {}
+            @Size(max = 80) String categoryCode,
+            @Size(max = 80) String projectCode) {}
 
     public record Response(
             UUID id,
@@ -27,5 +29,6 @@ public final class CalendarEventDtos {
             String description,
             ConfigOptionResponse category,
             Instant createdAt,
-            Instant updatedAt) {}
+            Instant updatedAt,
+            String projectCode) {}
 }

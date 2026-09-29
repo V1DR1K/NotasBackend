@@ -31,13 +31,14 @@ public class TaskService {
         this.configuration = configuration;
     }
 
-    public PageResponse<TaskDtos.Response> list(UUID owner, TaskStatus status, String categoryCode, LocalDate from, LocalDate to, Instant completedAfter, Instant completedBefore, Pageable pageable) {
+    public PageResponse<TaskDtos.Response> list(UUID owner, TaskStatus status, String categoryCode, String projectCode, LocalDate from, LocalDate to, Instant completedAfter, Instant completedBefore, Pageable pageable) {
         Specification<Task> spec = activeFor(owner);
         if (status != null) spec = spec.and((root, query, cb) -> cb.equal(root.get("status"), status));
         if (categoryCode != null && !categoryCode.isBlank()) {
             String normalized = categoryCode.trim().toLowerCase(Locale.ROOT);
             spec = spec.and((root, query, cb) -> cb.equal(cb.lower(root.get("categoryCode")), normalized));
         }
+        if (projectCode != null && !projectCode.isBlank()) spec = spec.and((root, query, cb) -> cb.equal(cb.lower(root.get("projectCode")), projectCode.trim().toLowerCase(Locale.ROOT)));
         if (from != null) spec = spec.and((root, query, cb) -> cb.greaterThanOrEqualTo(root.get("dueDate"), from));
         if (to != null) spec = spec.and((root, query, cb) -> cb.lessThanOrEqualTo(root.get("dueDate"), to));
         if (completedAfter != null) spec = spec.and((root, query, cb) -> cb.greaterThanOrEqualTo(root.get("completedAt"), completedAfter));
@@ -60,6 +61,7 @@ public class TaskService {
         task.setStatus(request.status() == null ? TaskStatus.PENDING : request.status());
         if (task.getStatus() == TaskStatus.COMPLETED) task.setCompletedAt(Instant.now());
         task.setCategoryCode(normalize(request.categoryCode()));
+        task.setProjectCode(configuration.projectCode(owner, request.projectCode()));
         task.setDueDate(request.dueDate());
         Task saved = repository.save(task);
         return response(saved, configuration.indexIncludingDeleted(owner, ConfigKind.TASK_CATEGORY));
@@ -77,6 +79,7 @@ public class TaskService {
             configuration.requireActive(owner, ConfigKind.TASK_CATEGORY, request.categoryCode(), "categoryCode");
             task.setCategoryCode(normalize(request.categoryCode()));
         }
+        if (request.projectCode() != null) task.setProjectCode(configuration.projectCode(owner, request.projectCode()));
         if (request.status() != null && request.status() != task.getStatus()) {
             task.setStatus(request.status());
             task.setCompletedAt(request.status() == TaskStatus.COMPLETED ? Instant.now() : null);
@@ -120,7 +123,7 @@ public class TaskService {
     private TaskDtos.Response response(Task task, Map<String, ConfigurationDtos.ConfigOptionResponse> categories) {
         ConfigurationDtos.ConfigOptionResponse category = categories.get(task.getCategoryCode().toLowerCase(Locale.ROOT));
         if (category == null) throw new NotFoundException("Configuration option not found");
-        return new TaskDtos.Response(task.getId(), task.getTitle(), task.getDetail(), task.getStatus(), category, task.getDueDate(), task.getCreatedAt(), task.getUpdatedAt(), task.getCompletedAt());
+        return new TaskDtos.Response(task.getId(), task.getTitle(), task.getDetail(), task.getStatus(), category, task.getDueDate(), task.getCreatedAt(), task.getUpdatedAt(), task.getCompletedAt(), task.getProjectCode());
     }
 
     private String normalize(String value) { return value.trim(); }

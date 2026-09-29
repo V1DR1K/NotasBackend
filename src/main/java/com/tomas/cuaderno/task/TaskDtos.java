@@ -17,14 +17,16 @@ public final class TaskDtos {
             @Size(max = 10000) String detail,
             @NotBlank @Size(max = 80) String categoryCode,
             TaskStatus status,
-            LocalDate dueDate) {}
+            LocalDate dueDate,
+            @Size(max = 80) String projectCode) {}
 
     public record PatchRequest(
             @Size(max = 180) String title,
             @Size(max = 10000) String detail,
             @Size(max = 80) String categoryCode,
             TaskStatus status,
-            JsonNode dueDate) {}
+            JsonNode dueDate,
+            @Size(max = 80) String projectCode) {}
 
     public record Response(
             UUID id,
@@ -35,7 +37,8 @@ public final class TaskDtos {
             LocalDate dueDate,
             Instant createdAt,
             Instant updatedAt,
-            Instant completedAt) {}
+            Instant completedAt,
+            String projectCode) {}
 
     public record Stats(long pending, long inProgress, long completed, long overdue) {}
 

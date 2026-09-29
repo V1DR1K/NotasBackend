@@ -33,8 +33,9 @@ public class CalendarEventController {
             @RequestParam(required = false) LocalDate from,
             @RequestParam(required = false) LocalDate to,
             @RequestParam(required = false) String categoryCode,
+            @RequestParam(required = false) String projectCode,
             @PageableDefault(size = 100, sort = "date", direction = Sort.Direction.ASC) Pageable page) {
-        return service.list(CurrentUser.id(), date, from, to, categoryCode, page);
+        return service.list(CurrentUser.id(), date, from, to, categoryCode, projectCode, page);
     }
 
     @GetMapping("/{id}")
