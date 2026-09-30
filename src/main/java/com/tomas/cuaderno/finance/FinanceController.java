@@ -30,6 +30,7 @@ import org.springframework.web.bind.annotation.*;
     @PutMapping("/accounts/{code}/balance") public FinanceDtos.AccountResponse syncAccount(@PathVariable String code, @Valid @RequestBody FinanceDtos.AccountSyncRequest request) { return accounts.sync(CurrentUser.id(), code, request); }
     @GetMapping("/exchange-rate/usd") public FinanceDtos.ExchangeRateResponse rate() { return rates.usd(CurrentUser.id()); }
     @GetMapping("/crypto/investments") public List<CryptoDtos.InvestmentResponse> cryptoInvestments() { return crypto.list(CurrentUser.id()); }
+    @GetMapping("/crypto/investments/{id}") public CryptoDtos.InvestmentResponse cryptoInvestment(@PathVariable UUID id) { return crypto.get(CurrentUser.id(), id); }
     @GetMapping("/crypto/summary") public CryptoDtos.Summary cryptoSummary() { return crypto.summary(CurrentUser.id()); }
     @PostMapping("/crypto/investments") @ResponseStatus(HttpStatus.CREATED) public CryptoDtos.InvestmentResponse invest(@Valid @RequestBody CryptoDtos.CreateRequest request) { return crypto.create(CurrentUser.id(), request); }
     @PatchMapping("/crypto/investments/{id}/unit-price") public CryptoDtos.InvestmentResponse completeCryptoPrice(@PathVariable UUID id, @Valid @RequestBody CryptoDtos.LegacyPriceRequest request) { return crypto.completeLegacyPrice(CurrentUser.id(), id, request); }

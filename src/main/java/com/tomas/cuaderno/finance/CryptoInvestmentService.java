@@ -6,6 +6,9 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.TreeMap;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -69,7 +72,9 @@ public class CryptoInvestmentService {
             }
         }
 
-        BigDecimal accountBalance = cryptoAccount(owner, false).getBalanceArs();
+        FinanceAccount account = cryptoAccount(owner, false);
+        BigDecimal accountBalance = account.getBalanceArs();
+        BigDecimal totalUsd = CryptoWallet.totalUsd(account, investedArs, investedUsd, rate.average());
         BigDecimal availableArs = accountBalance.subtract(money(investedArs)).max(BigDecimal.ZERO).setScale(ARS_SCALE, ROUNDING);
         List<CryptoDtos.Position> positions = byAsset.entrySet().stream()
                 .filter(entry -> entry.getValue().investedUsd.signum() > 0)
@@ -81,25 +86,32 @@ public class CryptoInvestmentService {
                 .toList();
         return new CryptoDtos.Summary(
                 new CryptoDtos.MoneyResponse(money(investedArs), usd(investedUsd), rate.average()),
-                new CryptoDtos.MoneyResponse(availableArs, usd(availableArs.divide(rate.average(), USD_SCALE, ROUNDING)), rate.average()),
+                new CryptoDtos.MoneyResponse(availableArs, usd(totalUsd.subtract(investedUsd).max(BigDecimal.ZERO)), rate.average()),
                 usd(realizedProfitUsd),
                 positions,
                 list(owner),
-                rate);
+                rate,
+                account.isUsdBalanceEstimated() || account.getBalanceUsd() == null,
+                performance(activeInvestments, salesByInvestment, totalUsd));
     }
 
     @Transactional
     public CryptoDtos.InvestmentResponse create(UUID owner, CryptoDtos.CreateRequest request) {
         CryptoAsset asset = CryptoAsset.parse(request.assetCode());
         FinanceAccount account = cryptoAccount(owner, true);
-        FinanceDtos.ExchangeRateResponse rate = rates.usd(owner);
+        BigDecimal legacyRate = account.getBalanceUsd() == null ? rates.usd(owner).average() : BigDecimal.ONE;
         BigDecimal amountUsd = usd(request.amountUsd());
         BigDecimal unitPriceUsd = price(request.unitPriceUsd());
         BigDecimal units = amountUsd.divide(unitPriceUsd, QUANTITY_SCALE, ROUNDING);
         if (units.signum() <= 0 || integerDigits(units) > 10) throw new BadRequestException("Purchase amount and price produce an unsupported crypto quantity");
-        BigDecimal amountArs = money(amountUsd.multiply(rate.average()));
-        BigDecimal availableArs = account.getBalanceArs().subtract(openBasisArs(owner)).setScale(ARS_SCALE, ROUNDING);
-        if (availableArs.signum() < 0 || amountArs.compareTo(availableArs) > 0) {
+        BigDecimal openArs = openBasisArs(owner), openUsd = openBasisUsd(owner);
+        CryptoWallet.initialize(account, openArs, openUsd, legacyRate);
+        BigDecimal availableUsd = account.getBalanceUsd().subtract(openUsd);
+        BigDecimal availableArs = account.getBalanceArs().subtract(openArs).setScale(ARS_SCALE, ROUNDING);
+        if (availableUsd.signum() <= 0 || amountUsd.compareTo(availableUsd) > 0) throw new BadRequestException("Insufficient available balance in crypto account");
+        BigDecimal bookRate = availableArs.divide(availableUsd, 8, ROUNDING);
+        BigDecimal amountArs = amountUsd.compareTo(availableUsd) == 0 ? availableArs : money(amountUsd.multiply(bookRate));
+        if (amountArs.signum() <= 0 || availableArs.signum() < 0 || amountArs.compareTo(availableArs) > 0) {
             throw new BadRequestException("Insufficient available balance in crypto account");
         }
         CryptoInvestment investment = new CryptoInvestment();
@@ -108,7 +120,7 @@ public class CryptoInvestmentService {
         investment.setAsset(asset);
         investment.setAmountUsd(amountUsd);
         investment.setAmountArs(amountArs);
-        investment.setExchangeRateSnapshot(rate.average());
+        investment.setExchangeRateSnapshot(bookRate);
         investment.setUnitPriceUsd(unitPriceUsd);
         investment.setQuantity(units);
         investment.setNote(request.note());
@@ -121,15 +133,15 @@ public class CryptoInvestmentService {
         cryptoAccount(owner, true);
         CryptoInvestment investment = investments.findActiveForUpdate(id, owner)
                 .orElseThrow(() -> new NotFoundException("Crypto investment not found"));
-        if (investment.getUnitPriceUsd() != null || investment.getQuantity() != null) {
-            throw new BadRequestException("Purchase price is already recorded");
-        }
         BigDecimal unitPriceUsd = price(request.unitPriceUsd());
+        List<CryptoSale> itemSales = sales.findByInvestmentIdInOrderByDateDescCreatedAtDesc(List.of(id));
+        if (investment.getUnitPriceUsd() != null && investment.getUnitPriceUsd().compareTo(unitPriceUsd) == 0) return response(investment, itemSales);
+        if (itemSales.stream().anyMatch(sale -> sale.getDeletedAt() == null)) throw new BadRequestException("Anulá las ventas de este lote antes de corregir el precio de compra. Sus costos y ganancias ya están registrados.");
         BigDecimal quantity = investment.getAmountUsd().divide(unitPriceUsd, QUANTITY_SCALE, ROUNDING);
         if (quantity.signum() <= 0 || integerDigits(quantity) > 10) throw new BadRequestException("Purchase amount and price produce an unsupported crypto quantity");
         investment.setUnitPriceUsd(unitPriceUsd);
         investment.setQuantity(quantity);
-        return response(investment, sales.findByInvestmentIdInOrderByDateDescCreatedAtDesc(List.of(id)));
+        return response(investment, itemSales);
     }
 
     @Transactional
@@ -156,11 +168,15 @@ public class CryptoInvestmentService {
                 : money(remainingArs.multiply(soldQuantity).divide(remainingQuantity, 18, ROUNDING));
         if (costBasisUsd.signum() <= 0) throw new BadRequestException("Sale quantity is below the supported precision");
 
-        FinanceDtos.ExchangeRateResponse rate = rates.usd(owner);
+        if (request.date().isBefore(investment.getDate())) throw new BadRequestException("La venta no puede ser anterior a la compra.");
+        BigDecimal bookRate = investment.getExchangeRateSnapshot();
+        CryptoWallet.initialize(account, openBasisArs(owner), openBasisUsd(owner), bookRate);
+        BigDecimal nextUsd = usd(account.getBalanceUsd().add(proceedsUsd).subtract(costBasisUsd));
         BigDecimal saleUnitPrice = proceedsUsd.divide(soldQuantity, PRICE_SCALE, ROUNDING);
-        BigDecimal realizedProfitArs = money(proceedsUsd.multiply(rate.average())).subtract(costBasisArs);
+        BigDecimal realizedProfitArs = money(proceedsUsd.multiply(bookRate)).subtract(costBasisArs);
         BigDecimal nextAccountBalance = money(account.getBalanceArs().add(realizedProfitArs));
         if (nextAccountBalance.signum() < 0) throw new BadRequestException("Sale would make the crypto account balance negative");
+        account.setBalanceUsd(nextUsd);
         account.setBalanceArs(nextAccountBalance);
         account.setBalanceAsOf(Instant.now());
 
@@ -173,7 +189,7 @@ public class CryptoInvestmentService {
         sale.setUnitPriceUsd(saleUnitPrice);
         sale.setCostBasisUsd(costBasisUsd);
         sale.setCostBasisArs(costBasisArs);
-        sale.setExchangeRateSnapshot(rate.average());
+        sale.setExchangeRateSnapshot(bookRate);
         sale.setNote(request.note());
         return saleResponse(sales.save(sale));
     }
@@ -187,7 +203,12 @@ public class CryptoInvestmentService {
                 .orElseThrow(() -> new NotFoundException("Crypto sale not found"));
         BigDecimal realizedProfitArs = money(sale.getProceedsUsd().multiply(sale.getExchangeRateSnapshot())).subtract(sale.getCostBasisArs());
         BigDecimal nextBalance = money(account.getBalanceArs().subtract(realizedProfitArs));
-        if (nextBalance.signum() < 0) throw new BadRequestException("Voiding this sale would make the crypto account balance negative");
+        BigDecimal openArs = openBasisArs(owner), openUsd = openBasisUsd(owner);
+        CryptoWallet.initialize(account, openArs, openUsd, sale.getExchangeRateSnapshot());
+        BigDecimal nextUsd = usd(account.getBalanceUsd().subtract(sale.getProceedsUsd()).add(sale.getCostBasisUsd()));
+        if (nextBalance.compareTo(openArs.add(sale.getCostBasisArs())) < 0 || nextUsd.compareTo(openUsd.add(sale.getCostBasisUsd())) < 0)
+            throw new BadRequestException("Saldo disponible insuficiente para anular la venta. Los fondos recibidos ya fueron usados.");
+        account.setBalanceUsd(nextUsd);
         account.setBalanceArs(nextBalance);
         account.setBalanceAsOf(Instant.now());
         sale.setDeletedAt(Instant.now());
@@ -209,6 +230,48 @@ public class CryptoInvestmentService {
                 ? accounts.findActiveForUpdate(owner, CRYPTO_ACCOUNT)
                 : accounts.findByOwnerIdAndCodeIgnoreCaseAndDeletedAtIsNull(owner, CRYPTO_ACCOUNT).filter(FinanceAccount::isActive))
                 .orElseThrow(() -> new NotFoundException("Crypto account not found"));
+    }
+
+    @Transactional(readOnly = true)
+    public CryptoDtos.InvestmentResponse get(UUID owner, UUID id) {
+        CryptoInvestment item = investments.findByIdAndOwnerIdAndDeletedAtIsNull(id, owner)
+                .orElseThrow(() -> new NotFoundException("Crypto investment not found"));
+        return response(item, sales.findByInvestmentIdInOrderByDateDescCreatedAtDesc(List.of(id)));
+    }
+
+    private BigDecimal openBasisUsd(UUID owner) {
+        List<CryptoInvestment> rows = investments.findByOwnerIdAndDeletedAtIsNullOrderByDateDescCreatedAtDesc(owner);
+        Map<UUID, List<CryptoSale>> byInvestment = salesFor(rows);
+        return rows.stream().map(item -> remainingBasisUsd(item, byInvestment.getOrDefault(item.getId(), List.of())))
+                .reduce(BigDecimal.ZERO, BigDecimal::add).setScale(USD_SCALE, ROUNDING);
+    }
+
+    private CryptoDtos.Performance performance(List<CryptoInvestment> rows, Map<UUID, List<CryptoSale>> saleRows, BigDecimal capital) {
+        BigDecimal purchases = BigDecimal.ZERO, proceeds = BigDecimal.ZERO, cost = BigDecimal.ZERO;
+        long count = 0;
+        Map<LocalDate, BigDecimal[]> daily = new TreeMap<>();
+        Map<CryptoAsset, BigDecimal[]> byAsset = new TreeMap<>();
+        for (CryptoInvestment item : rows) {
+            purchases = purchases.add(item.getAmountUsd());
+            for (CryptoSale sale : saleRows.getOrDefault(item.getId(), List.of())) {
+                if (sale.getDeletedAt() != null) continue;
+                count++; proceeds = proceeds.add(sale.getProceedsUsd()); cost = cost.add(sale.getCostBasisUsd());
+                BigDecimal[] day = daily.computeIfAbsent(sale.getDate(), ignored -> new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO});
+                day[0] = day[0].add(sale.getProceedsUsd()); day[1] = day[1].add(sale.getCostBasisUsd());
+                BigDecimal[] asset = byAsset.computeIfAbsent(item.getAsset(), ignored -> new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO});
+                asset[0] = asset[0].add(sale.getProceedsUsd()); asset[1] = asset[1].add(sale.getCostBasisUsd());
+            }
+        }
+        List<CryptoDtos.ProfitDay> evolution = new ArrayList<>();
+        BigDecimal cumulative = BigDecimal.ZERO;
+        for (var entry : daily.entrySet()) {
+            BigDecimal profit = entry.getValue()[0].subtract(entry.getValue()[1]); cumulative = cumulative.add(profit);
+            evolution.add(new CryptoDtos.ProfitDay(entry.getKey(), usd(entry.getValue()[0]), usd(entry.getValue()[1]), usd(profit), usd(cumulative)));
+        }
+        List<CryptoDtos.AssetPerformance> assets = byAsset.entrySet().stream().map(e -> new CryptoDtos.AssetPerformance(e.getKey().name(), e.getKey().label(),
+                usd(e.getValue()[0].subtract(e.getValue()[1])), usd(e.getValue()[0]), usd(e.getValue()[1]))).toList();
+        return new CryptoDtos.Performance(usd(capital), usd(purchases), usd(proceeds), usd(cost),
+                cost.signum() == 0 ? null : proceeds.subtract(cost).multiply(new BigDecimal("100")).divide(cost, 4, ROUNDING), count, evolution, assets);
     }
 
     private BigDecimal openBasisArs(UUID owner) {

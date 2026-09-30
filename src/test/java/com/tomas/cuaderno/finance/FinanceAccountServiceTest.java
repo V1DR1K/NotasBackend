@@ -42,10 +42,11 @@ class FinanceAccountServiceTest {
         org.mockito.Mockito.lenient().when(investments.openCostBasisArs(owner)).thenReturn(BigDecimal.ZERO);
         FinanceAccount cash = account(FinanceAccountGrowthMode.MANUAL, "0"); cash.setCode("mercadopago"); cash.setBalanceArs(new BigDecimal("1000.00"));
         FinanceAccount investment = account(FinanceAccountGrowthMode.MANUAL, "0"); investment.setCode("crypto"); investment.setBalanceArs(new BigDecimal("200.00")); investment.setType(FinanceAccountType.CRYPTO);
+        when(investments.openCostBasisUsd(owner)).thenReturn(BigDecimal.ZERO);
         when(repository.findActiveForUpdate(owner, "crypto")).thenReturn(java.util.Optional.of(investment));
         when(repository.findActiveForUpdate(owner, "mercadopago")).thenReturn(java.util.Optional.of(cash));
 
-        new FinanceAccountService(repository, investments).applyMovement(owner, "crypto", FinanceBucket.INCOME, new BigDecimal("250.00"));
+        new FinanceAccountService(repository, investments).move(owner, null, "crypto", FinanceBucket.INCOME, new BigDecimal("250.00"), new BigDecimal("1000"));
 
         assertThat(cash.getBalanceArs()).isEqualByComparingTo("750.00");
         assertThat(investment.getBalanceArs()).isEqualByComparingTo("450.00");
@@ -56,10 +57,11 @@ class FinanceAccountServiceTest {
         org.mockito.Mockito.lenient().when(investments.openCostBasisArs(owner)).thenReturn(BigDecimal.ZERO);
         FinanceAccount cash = account(FinanceAccountGrowthMode.MANUAL, "0"); cash.setCode("mercadopago"); cash.setBalanceArs(new BigDecimal("1000.00"));
         FinanceAccount investment = account(FinanceAccountGrowthMode.MANUAL, "0"); investment.setCode("crypto"); investment.setBalanceArs(new BigDecimal("500.00")); investment.setType(FinanceAccountType.CRYPTO);
+        when(investments.openCostBasisUsd(owner)).thenReturn(BigDecimal.ZERO);
         when(repository.findActiveForUpdate(owner, "crypto")).thenReturn(java.util.Optional.of(investment));
         when(repository.findActiveForUpdate(owner, "mercadopago")).thenReturn(java.util.Optional.of(cash));
 
-        new FinanceAccountService(repository, investments).applyMovement(owner, "crypto", FinanceBucket.EXPENSE, new BigDecimal("250.00"));
+        new FinanceAccountService(repository, investments).move(owner, null, "crypto", FinanceBucket.EXPENSE, new BigDecimal("250.00"), new BigDecimal("1000"));
 
         assertThat(cash.getBalanceArs()).isEqualByComparingTo("1250.00");
         assertThat(investment.getBalanceArs()).isEqualByComparingTo("250.00");
@@ -71,7 +73,7 @@ class FinanceAccountServiceTest {
         FinanceAccount cash = account(FinanceAccountGrowthMode.MANUAL, "0"); cash.setCode("mercadopago"); cash.setBalanceArs(new BigDecimal("100.00"));
         when(repository.findActiveForUpdate(owner, "mercadopago")).thenReturn(java.util.Optional.of(cash));
 
-        assertThatThrownBy(() -> new FinanceAccountService(repository, investments).applyMovement(owner, "mercadopago", FinanceBucket.EXPENSE, new BigDecimal("101.00")))
+        assertThatThrownBy(() -> new FinanceAccountService(repository, investments).move(owner, null, "mercadopago", FinanceBucket.EXPENSE, new BigDecimal("101.00"), new BigDecimal("1000")))
                 .isInstanceOf(BadRequestException.class);
     }
 

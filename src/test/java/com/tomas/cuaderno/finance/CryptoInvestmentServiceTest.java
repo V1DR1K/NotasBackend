@@ -28,7 +28,6 @@ class CryptoInvestmentServiceTest {
     @Test
     void create_convertsUsdAndPriceIntoSeparatePurchaseLot() {
         UUID owner = UUID.randomUUID();
-        when(rates.usd(owner)).thenReturn(rate("1000"));
         when(accounts.findActiveForUpdate(owner, "crypto")).thenReturn(Optional.of(account("2000000.00")));
         when(investments.findByOwnerIdAndDeletedAtIsNullOrderByDateDescCreatedAtDesc(owner)).thenReturn(List.of());
         when(investments.save(any(CryptoInvestment.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -45,7 +44,6 @@ class CryptoInvestmentServiceTest {
     @Test
     void create_whenAvailableBalanceIsInsufficient_rejectsPurchase() {
         UUID owner = UUID.randomUUID();
-        when(rates.usd(owner)).thenReturn(rate("1000"));
         when(accounts.findActiveForUpdate(owner, "crypto")).thenReturn(Optional.of(account("1000.00")));
         when(investments.findByOwnerIdAndDeletedAtIsNullOrderByDateDescCreatedAtDesc(owner)).thenReturn(List.of());
 
@@ -64,7 +62,6 @@ class CryptoInvestmentServiceTest {
         when(accounts.findActiveForUpdate(owner, "crypto")).thenReturn(Optional.of(account));
         when(investments.findActiveForUpdate(purchaseId, owner)).thenReturn(Optional.of(purchase));
         when(sales.findByInvestmentIdAndDeletedAtIsNull(purchaseId)).thenReturn(List.of());
-        when(rates.usd(owner)).thenReturn(rate("1000"));
         when(sales.save(any(CryptoSale.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         CryptoDtos.SaleResponse response = service().sell(owner, purchaseId,
@@ -85,7 +82,6 @@ class CryptoInvestmentServiceTest {
         when(accounts.findActiveForUpdate(owner, "crypto")).thenReturn(Optional.of(account));
         when(investments.findActiveForUpdate(purchaseId, owner)).thenReturn(Optional.of(investment(owner, "500", "500000.00", "50", "10")));
         when(sales.findByInvestmentIdAndDeletedAtIsNull(purchaseId)).thenReturn(List.of());
-        when(rates.usd(owner)).thenReturn(rate("1000"));
         when(sales.save(any(CryptoSale.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         CryptoDtos.SaleResponse response = service().sell(owner, purchaseId,
@@ -139,6 +135,7 @@ class CryptoInvestmentServiceTest {
         sale.setProceedsUsd(new BigDecimal("300"));
         sale.setExchangeRateSnapshot(new BigDecimal("1000"));
         sale.setCostBasisArs(new BigDecimal("200000.00"));
+        sale.setCostBasisUsd(new BigDecimal("200"));
         when(sales.findByIdAndInvestmentIdAndOwnerIdAndDeletedAtIsNull(saleId, purchaseId, owner)).thenReturn(Optional.of(sale));
 
         service().voidSale(owner, purchaseId, saleId);
@@ -176,6 +173,7 @@ class CryptoInvestmentServiceTest {
         account.setLabel("Inversión Cripto");
         account.setType(FinanceAccountType.CRYPTO);
         account.setBalanceArs(new BigDecimal(balance));
+        account.setBalanceUsd(new BigDecimal(balance).divide(new BigDecimal("1000")));
         account.setActive(true);
         return account;
     }

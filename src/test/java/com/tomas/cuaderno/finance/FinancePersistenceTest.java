@@ -29,11 +29,11 @@ import org.testcontainers.junit.jupiter.*;
 
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-@Import({FinanceService.class, FinanceAccountService.class})
+@Import({FinanceService.class, FinanceAccountService.class, CryptoInvestmentService.class})
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 @Testcontainers
 class FinancePersistenceTest {
-    @Container static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:17-alpine");
+    @Container static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:17-alpine").withStartupTimeout(Duration.ofMinutes(3));
     @DynamicPropertySource static void database(DynamicPropertyRegistry properties) {
         properties.add("spring.datasource.url", postgres::getJdbcUrl);
         properties.add("spring.datasource.username", postgres::getUsername);
@@ -41,6 +41,7 @@ class FinancePersistenceTest {
     }
     @Autowired FinanceService service;
     @Autowired FinanceAccountService accountService;
+    @Autowired CryptoInvestmentService crypto;
     @Autowired JdbcTemplate jdbc;
     @MockitoBean ConfigurationService configuration;
     @MockitoBean ExchangeRateService rates;
@@ -109,7 +110,7 @@ class FinancePersistenceTest {
     @Test void editsApplyOnlyTheNetDifferenceEvenAfterMoneyHasBeenSpent() {
         var movement = transfer("inversiones_pesos", "mercadopago", "10000");
         // Spend the returned funds and most of the original wallet balance.
-        accountService.applyMovement(owner, "mercadopago", FinanceBucket.EXPENSE, new BigDecimal("105000"));
+        accountService.move(owner, null, "mercadopago", FinanceBucket.EXPENSE, new BigDecimal("105000"), new BigDecimal("1000"));
         var result = service.patchTransfer(owner, movement.id(), new FinanceDtos.TransferPatchRequest(null, null, null, new BigDecimal("12000"), "edited"));
         assertBalance("mercadopago", "7000"); assertBalance("inversiones_pesos", "8000");
         assertThat(result.amount().ars()).isEqualByComparingTo("12000");
@@ -120,7 +121,7 @@ class FinancePersistenceTest {
 
     @Test void editsCanChangeDirectionAndInvestmentAndDeletionReversesBothSides() {
         var movement = transfer("mercadopago", "inversiones_pesos", "30000");
-        service.patchTransfer(owner, movement.id(), new FinanceDtos.TransferPatchRequest("mercadopago", "crypto", null, null, null));
+        service.patchTransfer(owner, movement.id(), new FinanceDtos.TransferPatchRequest("mercadopago", "crypto", null, null, null, new BigDecimal("1000")));
         assertBalance("mercadopago", "70000"); assertBalance("inversiones_pesos", "20000"); assertBalance("crypto", "50000");
         service.patchTransfer(owner, movement.id(), new FinanceDtos.TransferPatchRequest("crypto", "mercadopago", null, new BigDecimal("10000"), null));
         assertBalance("mercadopago", "110000"); assertBalance("crypto", "10000");
@@ -178,7 +179,7 @@ class FinancePersistenceTest {
     }
 
     @Test void oldCryptoTransferEndpointUsesTheSameAccounting() {
-        var movement = service.transferToCrypto(owner, new FinanceDtos.CryptoTransferRequest(date, new BigDecimal("30000"), null));
+        var movement = service.transferToCrypto(owner, new FinanceDtos.CryptoTransferRequest(date, new BigDecimal("30000"), null, new BigDecimal("1000")));
         service.patch(owner, movement.id(), new FinanceDtos.PatchRequest(null, null, null, null, new BigDecimal("20000"), null));
         assertBalance("mercadopago", "80000"); assertBalance("crypto", "40000");
         service.delete(owner, movement.id());
@@ -205,8 +206,135 @@ class FinancePersistenceTest {
         } finally { start.countDown(); }
     }
 
+    @Test void p2pCreditsActualDollarsAndMarketRateChangesDoNotRevalueCash() {
+        emptyCryptoWallet();
+        var movement = p2p("mercadopago", "crypto", "60000", "1200");
+        assertBalance("mercadopago", "40000"); assertBalance("crypto", "60000"); assertUsd("50");
+        assertThat(movement.amount().usd()).isEqualByComparingTo("50");
+        when(rates.usd(owner)).thenReturn(new FinanceDtos.ExchangeRateResponse("USD", new BigDecimal("2000"), new BigDecimal("2000"), new BigDecimal("2000"), Instant.now(), "test"));
+        assertThat(crypto.summary(owner).available().usd()).isEqualByComparingTo("50");
+        var purchase = crypto.create(owner, new CryptoDtos.CreateRequest(date, "BTCUSDT", new BigDecimal("30"), new BigDecimal("10"), null));
+        assertThat(purchase.amount().ars()).isEqualByComparingTo("36000");
+        assertThat(purchase.quantity()).isEqualByComparingTo("3");
+        assertThat(crypto.summary(owner).available().usd()).isEqualByComparingTo("20");
+        p2p("crypto", "mercadopago", "30000", "1500");
+        assertBalance("mercadopago", "70000"); assertBalance("crypto", "36000"); assertUsd("30");
+        assertThat(crypto.summary(owner).available().usd()).isZero();
+        assertThat(service.summary(owner, date, date).income().ars()).isZero();
+        assertThat(service.analytics(owner, date, date).daily()).isEmpty();
+    }
+
+    @Test void mixedP2pDepositsUseWeightedCashCostAndEditingRateAppliesNetUsdDifference() {
+        emptyCryptoWallet();
+        var first = p2p("mercadopago", "crypto", "30000", "1000");
+        p2p("mercadopago", "crypto", "30000", "1500");
+        assertUsd("50");
+        var purchase = crypto.create(owner, new CryptoDtos.CreateRequest(date, "SOLUSDT", new BigDecimal("25"), new BigDecimal("5"), null));
+        assertThat(purchase.amount().ars()).isEqualByComparingTo("30000");
+        service.patchTransfer(owner, first.id(), new FinanceDtos.TransferPatchRequest(null, null, null, null, null, new BigDecimal("1200")));
+        assertUsd("45"); assertBalance("mercadopago", "40000");
+        assertThatThrownBy(() -> service.delete(owner, first.id())).isInstanceOf(BadRequestException.class);
+        assertUsd("45");
+        assertThatThrownBy(() -> p2p("crypto", "mercadopago", "30001", "1500")).isInstanceOf(BadRequestException.class);
+        assertBalance("mercadopago", "40000"); assertUsd("45");
+    }
+
+    @Test void salesPersistPricesCostAndProfitThenVoidingReversesMetricsAndUsd() {
+        emptyCryptoWallet(); p2p("mercadopago", "crypto", "60000", "1200");
+        var purchase = crypto.create(owner, new CryptoDtos.CreateRequest(date, "BTCUSDT", new BigDecimal("40"), new BigDecimal("10"), null));
+        var sale = crypto.sell(owner, purchase.id(), new CryptoDtos.SellRequest(date.plusDays(1), new BigDecimal("2"), new BigDecimal("30"), null));
+        assertThat(sale.unitPriceUsd()).isEqualByComparingTo("15");
+        assertThat(sale.costBasisUsd()).isEqualByComparingTo("20");
+        assertThat(sale.realizedProfitUsd()).isEqualByComparingTo("10"); assertUsd("60");
+        assertThat(jdbc.queryForObject("select unit_price_usd from crypto_sales where id=?", BigDecimal.class, sale.id())).isEqualByComparingTo("15");
+        var summary = crypto.summary(owner);
+        assertThat(summary.available().usd()).isEqualByComparingTo("40");
+        assertThat(summary.performance().capitalUsd()).isEqualByComparingTo("60");
+        assertThat(summary.performance().realizedReturnPercent()).isEqualByComparingTo("50");
+        assertThat(summary.performance().evolution()).singleElement().satisfies(day -> assertThat(day.cumulativeProfitUsd()).isEqualByComparingTo("10"));
+        assertThatThrownBy(() -> crypto.completeLegacyPrice(owner, purchase.id(), new CryptoDtos.LegacyPriceRequest(new BigDecimal("20")))).isInstanceOf(BadRequestException.class);
+        crypto.voidSale(owner, purchase.id(), sale.id()); assertUsd("50");
+        assertThat(crypto.summary(owner).realizedProfitUsd()).isZero();
+        assertThat(crypto.summary(owner).performance().evolution()).isEmpty();
+        assertThat(crypto.get(owner, purchase.id()).remainingQuantity()).isEqualByComparingTo("4");
+        crypto.voidPurchase(owner, purchase.id());
+        assertThat(crypto.summary(owner).available().usd()).isEqualByComparingTo("50");
+    }
+
+    @Test void priceCorrectionsArePersistedAndIdempotentAndRecomputeUnitsWithoutChangingCost() {
+        emptyCryptoWallet(); p2p("mercadopago", "crypto", "60000", "1200");
+        var purchase = crypto.create(owner, new CryptoDtos.CreateRequest(date, "PEPEUSDT", new BigDecimal("40"), new BigDecimal("0.00001"), null));
+        var request = new CryptoDtos.LegacyPriceRequest(new BigDecimal("0.00002"));
+        crypto.completeLegacyPrice(owner, purchase.id(), request);
+        crypto.completeLegacyPrice(owner, purchase.id(), request);
+        var persisted = crypto.get(owner, purchase.id());
+        assertThat(persisted.unitPriceUsd()).isEqualByComparingTo("0.00002");
+        assertThat(persisted.quantity()).isEqualByComparingTo("2000000");
+        assertThat(persisted.amount().usd()).isEqualByComparingTo("40"); assertUsd("50");
+    }
+
+    @Test void cannotVoidSaleAfterItsProceedsWereSpentAndFailureRollsBackEverything() {
+        emptyCryptoWallet(); p2p("mercadopago", "crypto", "60000", "1200");
+        var purchase = crypto.create(owner, new CryptoDtos.CreateRequest(date, "ETHUSDT", new BigDecimal("40"), new BigDecimal("10"), null));
+        var sale = crypto.sell(owner, purchase.id(), new CryptoDtos.SellRequest(date, new BigDecimal("2"), new BigDecimal("30"), null));
+        p2p("crypto", "mercadopago", "48000", "1200");
+        assertThatThrownBy(() -> crypto.voidSale(owner, purchase.id(), sale.id())).isInstanceOf(BadRequestException.class);
+        assertUsd("20"); assertBalance("mercadopago", "88000");
+        assertThat(crypto.get(owner, purchase.id()).sales()).singleElement().satisfies(row -> assertThat(row.voided()).isFalse());
+        when(configuration.indexIncludingDeleted(owner, ConfigKind.FINANCE_ITEM)).thenThrow(new IllegalStateException("response failure"));
+        assertThatThrownBy(() -> p2p("mercadopago", "crypto", "12000", "1200")).isInstanceOf(IllegalStateException.class);
+        assertUsd("20"); assertBalance("mercadopago", "88000");
+    }
+
+    @Test void concurrentP2pDepositsPreserveBothUsdAndArs() throws Exception {
+        emptyCryptoWallet();
+        CountDownLatch start = new CountDownLatch(1);
+        try (ExecutorService executor = Executors.newFixedThreadPool(2)) {
+            Future<?> first = executor.submit(() -> { try { start.await(); p2p("mercadopago", "crypto", "30000", "1000"); } catch (InterruptedException e) { throw new RuntimeException(e); } });
+            Future<?> second = executor.submit(() -> { try { start.await(); p2p("mercadopago", "crypto", "30000", "1500"); } catch (InterruptedException e) { throw new RuntimeException(e); } });
+            start.countDown(); first.get(20, TimeUnit.SECONDS); second.get(20, TimeUnit.SECONDS);
+            assertUsd("50"); assertBalance("mercadopago", "40000"); assertBalance("crypto", "60000");
+        } finally { start.countDown(); }
+    }
+
+    @Test void actualP2pRateIsRequiredAndUsdCorrectionsPreserveHistoricalArsCost() {
+        emptyCryptoWallet();
+        assertThatThrownBy(() -> service.transfer(owner, new FinanceDtos.TransferRequest("mercadopago", "crypto", date, new BigDecimal("1000"), null))).isInstanceOf(BadRequestException.class);
+        assertBalance("mercadopago", "100000"); assertUsd("0");
+        p2p("mercadopago", "crypto", "60000", "1200");
+        var purchase = crypto.create(owner, new CryptoDtos.CreateRequest(date, "BTCUSDT", new BigDecimal("40"), new BigDecimal("10"), null));
+        accountService.sync(owner, "crypto", new FinanceDtos.AccountSyncRequest(null, new BigDecimal("48")));
+        assertUsd("48"); assertBalance("crypto", "60000"); assertBalance("mercadopago", "40000");
+        assertThat(crypto.get(owner, purchase.id()).amount().usd()).isEqualByComparingTo("40");
+        assertThat(crypto.summary(owner).available().usd()).isEqualByComparingTo("8");
+        assertThat(crypto.summary(owner).legacyBalanceEstimated()).isFalse();
+        assertThatThrownBy(() -> accountService.sync(owner, "crypto", new FinanceDtos.AccountSyncRequest(null, new BigDecimal("39")))).isInstanceOf(BadRequestException.class);
+        assertUsd("48");
+    }
+
+    @Test void completeSaleAtALossConsumesExactResidualBasisAndRecordsNegativeReturn() {
+        emptyCryptoWallet(); p2p("mercadopago", "crypto", "60000", "1200");
+        var purchase = crypto.create(owner, new CryptoDtos.CreateRequest(date, "SOLUSDT", new BigDecimal("40"), new BigDecimal("3"), null));
+        crypto.sell(owner, purchase.id(), new CryptoDtos.SellRequest(date, new BigDecimal("1"), new BigDecimal("2"), null));
+        var remaining = crypto.get(owner, purchase.id());
+        crypto.sell(owner, purchase.id(), new CryptoDtos.SellRequest(date.plusDays(1), remaining.remainingQuantity(), new BigDecimal("28"), null));
+        assertUsd("40");
+        var summary = crypto.summary(owner);
+        assertThat(summary.invested().usd()).isZero();
+        assertThat(summary.available().usd()).isEqualByComparingTo("40");
+        assertThat(summary.realizedProfitUsd()).isEqualByComparingTo("-10");
+        assertThat(summary.performance().realizedReturnPercent()).isEqualByComparingTo("-25");
+        assertThat(summary.performance().soldCostBasisUsd()).isEqualByComparingTo("40");
+    }
+
+    void emptyCryptoWallet() { jdbc.update("update finance_accounts set balance_ars=0,balance_usd=0 where owner_id=? and code='crypto'", owner); }
+    void assertUsd(String expected) { assertThat(jdbc.queryForObject("select balance_usd from finance_accounts where owner_id=? and code='crypto'", BigDecimal.class, owner)).isEqualByComparingTo(expected); }
+    FinanceDtos.Response p2p(String source, String destination, String amount, String rate) {
+        return service.transfer(owner, new FinanceDtos.TransferRequest(source, destination, date, new BigDecimal(amount), null, new BigDecimal(rate)));
+    }
+
     FinanceDtos.Response transfer(String source, String destination, String amount) {
-        return service.transfer(owner, new FinanceDtos.TransferRequest(source, destination, date, new BigDecimal(amount), null));
+        return service.transfer(owner, new FinanceDtos.TransferRequest(source, destination, date, new BigDecimal(amount), null, new BigDecimal("1000")));
     }
 
     void account(String code, String type, String amount) {

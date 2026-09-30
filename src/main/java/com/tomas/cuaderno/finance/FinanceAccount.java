@@ -11,6 +11,8 @@ public class FinanceAccount extends AuditableEntity {
     @Column(nullable = false, length = 160) private String label;
     @Enumerated(EnumType.STRING) @Column(name = "account_type", nullable = false, length = 20) private FinanceAccountType type;
     @Column(name = "balance_ars", nullable = false, precision = 19, scale = 2) private BigDecimal balanceArs;
+    @Column(name = "balance_usd", precision = 19, scale = 8) private BigDecimal balanceUsd;
+    @Column(name = "usd_balance_estimated", nullable = false) private boolean usdBalanceEstimated;
     @Column(name = "annual_rate_percent", nullable = false, precision = 9, scale = 4) private BigDecimal annualRatePercent = BigDecimal.ZERO;
     @Enumerated(EnumType.STRING) @Column(name = "growth_mode", nullable = false, length = 30) private FinanceAccountGrowthMode growthMode;
     @Column(name = "balance_as_of", nullable = false) private Instant balanceAsOf;
@@ -20,6 +22,8 @@ public class FinanceAccount extends AuditableEntity {
     public String getLabel() { return label; } public void setLabel(String v) { label = v; }
     public FinanceAccountType getType() { return type; } public void setType(FinanceAccountType v) { type = v; }
     public BigDecimal getBalanceArs() { return balanceArs; } public void setBalanceArs(BigDecimal v) { balanceArs = v; }
+    public BigDecimal getBalanceUsd() { return balanceUsd; } public void setBalanceUsd(BigDecimal v) { balanceUsd = v; }
+    public boolean isUsdBalanceEstimated() { return usdBalanceEstimated; } public void setUsdBalanceEstimated(boolean v) { usdBalanceEstimated = v; }
     public BigDecimal getAnnualRatePercent() { return annualRatePercent; } public void setAnnualRatePercent(BigDecimal v) { annualRatePercent = v; }
     public FinanceAccountGrowthMode getGrowthMode() { return growthMode; } public void setGrowthMode(FinanceAccountGrowthMode v) { growthMode = v; }
     public Instant getBalanceAsOf() { return balanceAsOf; } public void setBalanceAsOf(Instant v) { balanceAsOf = v; }

@@ -12,6 +12,8 @@ import org.springframework.data.repository.query.Param;
 public interface CryptoInvestmentRepository extends JpaRepository<CryptoInvestment, UUID> {
     @Query("select coalesce(sum(i.amountArs), 0) - coalesce((select sum(s.costBasisArs) from CryptoSale s, CryptoInvestment p where s.investmentId = p.id and p.ownerId = :owner and p.deletedAt is null and s.deletedAt is null), 0) from CryptoInvestment i where i.ownerId = :owner and i.deletedAt is null")
     java.math.BigDecimal openCostBasisArs(@Param("owner") UUID ownerId);
+    @Query("select coalesce(sum(i.amountUsd), 0) - coalesce((select sum(s.costBasisUsd) from CryptoSale s, CryptoInvestment p where s.investmentId = p.id and p.ownerId = :owner and p.deletedAt is null and s.deletedAt is null), 0) from CryptoInvestment i where i.ownerId = :owner and i.deletedAt is null")
+    java.math.BigDecimal openCostBasisUsd(@Param("owner") UUID ownerId);
     List<CryptoInvestment> findByOwnerIdOrderByDateDescCreatedAtDesc(UUID ownerId);
 
     List<CryptoInvestment> findByOwnerIdAndDeletedAtIsNullOrderByDateDescCreatedAtDesc(UUID ownerId);

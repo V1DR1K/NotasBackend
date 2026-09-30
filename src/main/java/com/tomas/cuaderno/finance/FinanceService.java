@@ -39,19 +39,20 @@ import org.springframework.transaction.annotation.Transactional;
         String accountCode = normalize(request.accountCode()), itemCode = normalize(request.itemCode());
         validateMovement(owner, accountCode, request.bucket(), itemCode);
         BigDecimal amount = positiveAmount(request.amountArs());
-        BigDecimal rate = rates.average(owner);
-        accounts.applyMovement(owner, accountCode, request.bucket(), amount);
+        BigDecimal rate = "crypto".equals(accountCode) ? transferRate(request.exchangeRate()) : rates.average(owner);
+        BigDecimal book = accounts.move(owner, null, accountCode, request.bucket(), amount, rate);
         FinanceMovement x = new FinanceMovement();
         x.setOwnerId(owner); x.setDate(request.date()); x.setBucket(request.bucket()); x.setAccountCode(accountCode);
         x.setItemCode(itemCode); x.setAmountArs(amount); x.setExchangeRateSnapshot(rate); x.setNote(request.note()); x.setBalanceApplied(true);
+        if ("crypto".equals(accountCode)) { x.setCryptoAmountUsd(amount.divide(rate, 8, RoundingMode.HALF_UP)); x.setCryptoBookAmountArs(book); }
         return response(owner, repository.save(x));
     }
     @Transactional public FinanceDtos.Response transfer(UUID owner, FinanceDtos.TransferRequest request) {
         TransferRoute route = transferRoute(owner, request.sourceAccountCode(), request.destinationAccountCode());
-        return create(owner, new FinanceDtos.CreateRequest(request.date(), route.bucket(), route.accountCode(), TRANSFER_ITEM, request.amountArs(), request.note()));
+        return create(owner, new FinanceDtos.CreateRequest(request.date(), route.bucket(), route.accountCode(), TRANSFER_ITEM, request.amountArs(), request.note(), request.exchangeRate()));
     }
     @Transactional public FinanceDtos.Response transferToCrypto(UUID owner, FinanceDtos.CryptoTransferRequest request) {
-        return transfer(owner, new FinanceDtos.TransferRequest(CASH_ACCOUNT, "crypto", request.date(), request.amountArs(), request.note()));
+        return transfer(owner, new FinanceDtos.TransferRequest(CASH_ACCOUNT, "crypto", request.date(), request.amountArs(), request.note(), request.exchangeRate()));
     }
     @Transactional public FinanceDtos.Response patchTransfer(UUID owner, UUID id, FinanceDtos.TransferPatchRequest request) {
         FinanceMovement x = lockedMovement(owner, id);
@@ -59,27 +60,34 @@ import org.springframework.transaction.annotation.Transactional;
         String source = request.sourceAccountCode() == null ? source(x) : request.sourceAccountCode();
         String destination = request.destinationAccountCode() == null ? destination(x) : request.destinationAccountCode();
         TransferRoute route = transferRoute(owner, source, destination);
-        return update(owner, x, new FinanceDtos.PatchRequest(request.date(), route.bucket(), route.accountCode(), TRANSFER_ITEM, request.amountArs(), request.note()));
+        BigDecimal rate = "crypto".equals(route.accountCode()) ? transferRate(request.exchangeRate() == null && "crypto".equals(x.getAccountCode()) ? x.getExchangeRateSnapshot() : request.exchangeRate()) : x.getExchangeRateSnapshot();
+        return update(owner, x, new FinanceDtos.PatchRequest(request.date(), route.bucket(), route.accountCode(), TRANSFER_ITEM, request.amountArs(), request.note()), rate);
     }
     @Transactional public FinanceDtos.Response patch(UUID owner, UUID id, FinanceDtos.PatchRequest request) {
         return update(owner, lockedMovement(owner, id), request);
     }
     private FinanceDtos.Response update(UUID owner, FinanceMovement x, FinanceDtos.PatchRequest request) {
+        String target = request.accountCode() == null ? x.getAccountCode() : normalize(request.accountCode());
+        BigDecimal rate = "crypto".equals(target) ? transferRate(request.exchangeRate() == null && "crypto".equals(x.getAccountCode()) ? x.getExchangeRateSnapshot() : request.exchangeRate()) : x.getExchangeRateSnapshot();
+        return update(owner, x, request, rate);
+    }
+    private FinanceDtos.Response update(UUID owner, FinanceMovement x, FinanceDtos.PatchRequest request, BigDecimal rate) {
         String accountCode = request.accountCode() == null ? normalize(x.getAccountCode()) : normalize(request.accountCode());
         FinanceBucket bucket = request.bucket() == null ? x.getBucket() : request.bucket();
         String itemCode = request.itemCode() == null ? normalize(x.getItemCode()) : normalize(request.itemCode());
         BigDecimal amount = positiveAmount(request.amountArs() == null ? x.getAmountArs() : request.amountArs());
         validateMovement(owner, accountCode, bucket, itemCode);
-        boolean balanceChanged = !accountCode.equalsIgnoreCase(x.getAccountCode()) || bucket != x.getBucket() || amount.compareTo(x.getAmountArs()) != 0;
-        if (balanceChanged || !x.isBalanceApplied()) { accounts.replaceMovement(owner, x, accountCode, bucket, amount); x.setBalanceApplied(true); }
+        boolean balanceChanged = !accountCode.equalsIgnoreCase(x.getAccountCode()) || bucket != x.getBucket() || amount.compareTo(x.getAmountArs()) != 0 || rate.compareTo(x.getExchangeRateSnapshot()) != 0;
+        if (balanceChanged || !x.isBalanceApplied()) { BigDecimal book = accounts.move(owner, x, accountCode, bucket, amount, rate); x.setBalanceApplied(true);
+            x.setCryptoAmountUsd("crypto".equals(accountCode) ? amount.divide(rate, 8, RoundingMode.HALF_UP) : null); x.setCryptoBookAmountArs(book); }
         if (request.date() != null) x.setDate(request.date());
-        x.setBucket(bucket); x.setAccountCode(accountCode); x.setItemCode(itemCode); x.setAmountArs(amount);
+        x.setBucket(bucket); x.setAccountCode(accountCode); x.setItemCode(itemCode); x.setAmountArs(amount); x.setExchangeRateSnapshot(rate);
         if (request.note() != null) x.setNote(request.note());
         return response(owner, x);
     }
     @Transactional public void delete(UUID owner, UUID id) {
         FinanceMovement x = lockedMovement(owner, id);
-        if (x.isBalanceApplied()) accounts.reverseMovement(owner, x.getAccountCode(), x.getBucket(), x.getAmountArs());
+        if (x.isBalanceApplied()) accounts.move(owner, x, null, null, null, x.getExchangeRateSnapshot());
         x.setDeletedAt(Instant.now());
     }
     private FinanceMovement lockedMovement(UUID owner, UUID id) {
@@ -99,6 +107,10 @@ import org.springframework.transaction.annotation.Transactional;
     private String normalize(String code) {
         if (code == null || code.isBlank()) throw new BadRequestException("Seleccioná una cuenta o clasificación válida.");
         return code.trim().toLowerCase(Locale.ROOT);
+    }
+    private BigDecimal transferRate(BigDecimal rate) {
+        if (rate == null || rate.signum() <= 0) throw new BadRequestException("Ingresá la cotización real del P2P en pesos por USD.");
+        return rate.setScale(8, RoundingMode.HALF_UP);
     }
     private BigDecimal positiveAmount(BigDecimal amount) {
         if (amount == null || amount.compareTo(new BigDecimal("0.01")) < 0) throw new BadRequestException("El importe debe ser mayor a cero.");
@@ -143,7 +155,7 @@ import org.springframework.transaction.annotation.Transactional;
         BigDecimal rate = x.getExchangeRateSnapshot();
         ConfigurationDtos.ConfigOptionResponse item = items.get(x.getItemCode().toLowerCase(Locale.ROOT));
         if (item == null) throw new NotFoundException("Configuration option not found");
-        return new FinanceDtos.Response(x.getId(), x.getDate(), x.getBucket(), x.getAccountCode(), money(x.getAmountArs(), rate), item, x.getNote(), x.getCreatedAt(), x.getUpdatedAt(), movementType(x), source(x), destination(x));
+        return new FinanceDtos.Response(x.getId(), x.getDate(), x.getBucket(), x.getAccountCode(), new FinanceDtos.MoneyResponse(x.getAmountArs(), x.getCryptoAmountUsd() == null ? money(x.getAmountArs(), rate).usd() : x.getCryptoAmountUsd(), rate), item, x.getNote(), x.getCreatedAt(), x.getUpdatedAt(), movementType(x), source(x), destination(x));
     }
     private FinanceMovementType movementType(FinanceMovement x) {
         if (x.getBucket() != FinanceBucket.INVESTED && !CASH_ACCOUNT.equalsIgnoreCase(x.getAccountCode())) return FinanceMovementType.TRANSFER;

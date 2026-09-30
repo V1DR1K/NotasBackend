@@ -14,6 +14,8 @@ public class FinanceMovement extends AuditableEntity {
     @Column(name = "item_code", nullable = false, length = 80) private String itemCode;
     @Column(name = "amount_ars", nullable = false, precision = 19, scale = 2) private BigDecimal amountArs;
     @Column(name = "exchange_rate_snapshot", nullable = false, precision = 19, scale = 8) private BigDecimal exchangeRateSnapshot;
+    @Column(name = "crypto_amount_usd", precision = 19, scale = 8) private BigDecimal cryptoAmountUsd;
+    @Column(name = "crypto_book_amount_ars", precision = 19, scale = 2) private BigDecimal cryptoBookAmountArs;
     @Column(length = 1000) private String note;
     @Column(name = "balance_applied", nullable = false) private boolean balanceApplied;
     public LocalDate getDate() { return date; } public void setDate(LocalDate v) { date = v; }
@@ -22,6 +24,8 @@ public class FinanceMovement extends AuditableEntity {
     public String getItemCode() { return itemCode; } public void setItemCode(String v) { itemCode = v; }
     public BigDecimal getAmountArs() { return amountArs; } public void setAmountArs(BigDecimal v) { amountArs = v; }
     public BigDecimal getExchangeRateSnapshot() { return exchangeRateSnapshot; } public void setExchangeRateSnapshot(BigDecimal v) { exchangeRateSnapshot = v; }
+    public BigDecimal getCryptoAmountUsd() { return cryptoAmountUsd; } public void setCryptoAmountUsd(BigDecimal v) { cryptoAmountUsd = v; }
+    public BigDecimal getCryptoBookAmountArs() { return cryptoBookAmountArs; } public void setCryptoBookAmountArs(BigDecimal v) { cryptoBookAmountArs = v; }
     public String getNote() { return note; } public void setNote(String v) { note = v; }
     public boolean isBalanceApplied() { return balanceApplied; } public void setBalanceApplied(boolean v) { balanceApplied = v; }
 }

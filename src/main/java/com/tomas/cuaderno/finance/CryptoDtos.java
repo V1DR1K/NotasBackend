@@ -75,5 +75,15 @@ public final class CryptoDtos {
             BigDecimal realizedProfitUsd,
             List<Position> positions,
             List<InvestmentResponse> investments,
-            FinanceDtos.ExchangeRateResponse exchangeRate) {}
+            FinanceDtos.ExchangeRateResponse exchangeRate,
+            boolean legacyBalanceEstimated,
+            Performance performance) {}
+
+    public record Performance(BigDecimal capitalUsd, BigDecimal purchaseTotalUsd, BigDecimal saleProceedsUsd,
+            BigDecimal soldCostBasisUsd, BigDecimal realizedReturnPercent, long salesCount,
+            List<ProfitDay> evolution, List<AssetPerformance> assets) {}
+    public record ProfitDay(LocalDate date, BigDecimal proceedsUsd, BigDecimal costBasisUsd,
+            BigDecimal realizedProfitUsd, BigDecimal cumulativeProfitUsd) {}
+    public record AssetPerformance(String assetCode, String assetLabel, BigDecimal realizedProfitUsd,
+            BigDecimal proceedsUsd, BigDecimal costBasisUsd) {}
 }
