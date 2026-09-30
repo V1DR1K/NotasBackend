@@ -8,6 +8,9 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface FinanceAccountRepository extends JpaRepository<FinanceAccount, UUID> {
+    interface ActiveAccount { String getCode(); FinanceAccountType getType(); }
+    @Query("select a.code as code, a.type as type from FinanceAccount a where a.ownerId = :owner and lower(a.code) = lower(:code) and a.deletedAt is null and a.active = true")
+    Optional<ActiveAccount> findActiveReference(@Param("owner") UUID owner, @Param("code") String code);
     List<FinanceAccount> findByOwnerIdAndDeletedAtIsNull(UUID ownerId);
     List<FinanceAccount> findByOwnerIdAndActiveTrueAndDeletedAtIsNullOrderByTypeAscCodeAsc(UUID ownerId);
     Optional<FinanceAccount> findByOwnerIdAndCodeIgnoreCaseAndDeletedAtIsNull(UUID ownerId, String code);

@@ -49,9 +49,11 @@ GET acepta `categoryCode`, `date`, `from`, `to`, `search`, `page`, `size` y `sor
 
 Finanzas: `GET/POST /api/finance/movements`, `GET/PATCH/DELETE /api/finance/movements/{id}`, `GET /api/finance/summary?from=YYYY-MM-DD&to=YYYY-MM-DD`, `GET /api/finance/analytics?from=YYYY-MM-DD&to=YYYY-MM-DD`, `GET /api/finance/accounts`, `PUT /api/finance/accounts/{code}/balance`, `GET /api/finance/exchange-rate/usd` y `POST /api/finance/exchange-rate/usd` solo ADMIN.
 
-La analítica financiera devuelve los totales diarios de ingresos y egresos, además de las sumas agrupadas por `itemCode` para cada bucket. El rango admite hasta 366 días y excluye movimientos eliminados.
+La analítica financiera considera únicamente ingresos y egresos externos de Mercado Pago; excluye transferencias internas. Devuelve los totales diarios de ingresos y egresos, además de las sumas agrupadas por `itemCode` para cada bucket. El rango admite hasta 366 días y excluye movimientos eliminados.
 
 Las cuentas financieras muestran los saldos actuales y los movimientos nuevos los actualizan. `DAILY_TNA` proyecta el saldo con capitalización diaria y `MANUAL` conserva el último saldo sincronizado. Para Tomas se crean de forma idempotente MercadoPago (`58938.11` ARS, `18.5` TNA), Inversiones en pesos (`800000` ARS) y Crypto (`6206454.61` ARS). Un ingreso o egreso de MercadoPago modifica esa caja; una transferencia con una inversión mueve el dinero entre MercadoPago y la inversión seleccionada.
+
+Las transferencias explícitas usan `POST /api/finance/transfers` y `PATCH /api/finance/transfers/{id}`. El alta recibe `sourceAccountCode`, `destinationAccountCode`, `date`, `amountArs` y `note` opcional; PATCH acepta esos mismos campos de forma parcial. Solo se permiten Mercado Pago (`mercadopago`) ↔ Inversión Pesos (`inversiones_pesos`) y Mercado Pago ↔ Cripto (`crypto`). La respuesta conserva el movimiento original y agrega `movementType`, `sourceAccountCode` y `destinationAccountCode`; el listado acepta `movementType=INCOME|EXPENSE|TRANSFER|INVESTED`. Las rutas anteriores siguen usando la misma operación transaccional. Editar aplica la diferencia neta y eliminar revierte ambos saldos. Un retiro o corrección de Cripto no puede consumir el capital asignado a posiciones abiertas. La actualización manual de saldo es una corrección independiente y no transfiere dinero. No se modifican saldos históricos.
 
 El request de movimiento es:
 
@@ -83,3 +85,5 @@ Los archivos se guardan fuera de PostgreSQL bajo `FILE_STORAGE_ROOT` (default `/
 mvn test
 mvn package
 ```
+
+Las pruebas de persistencia financiera usan PostgreSQL 17 mediante Testcontainers y requieren Docker. Con Docker 29, ejecutar `mvn -Dapi.version=1.44 test` para la compatibilidad del cliente Docker administrado por Spring Boot 3.5.

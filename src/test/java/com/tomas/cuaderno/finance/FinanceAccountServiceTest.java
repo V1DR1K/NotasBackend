@@ -18,12 +18,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class FinanceAccountServiceTest {
     @Mock FinanceAccountRepository repository;
+    @Mock CryptoInvestmentRepository investments;
 
     @Test void projectsDailyTnaBalance() {
         FinanceAccount account = account(FinanceAccountGrowthMode.DAILY_TNA, "18.5");
         account.setBalanceAsOf(Instant.now().minus(1, ChronoUnit.DAYS));
         when(repository.findByOwnerIdAndActiveTrueAndDeletedAtIsNullOrderByTypeAscCodeAsc(any(UUID.class))).thenReturn(List.of(account));
-        FinanceDtos.AccountResponse response = new FinanceAccountService(repository).list(UUID.randomUUID()).getFirst();
+        FinanceDtos.AccountResponse response = new FinanceAccountService(repository, investments).list(UUID.randomUUID()).getFirst();
         assertThat(response.balanceArs()).isGreaterThan(new BigDecimal("1000.00"));
         assertThat(response.annualRatePercent()).isEqualByComparingTo("18.5");
     }
@@ -32,18 +33,19 @@ class FinanceAccountServiceTest {
         FinanceAccount account = account(FinanceAccountGrowthMode.MANUAL, "0");
         account.setBalanceAsOf(Instant.now().minus(10, ChronoUnit.DAYS));
         when(repository.findByOwnerIdAndActiveTrueAndDeletedAtIsNullOrderByTypeAscCodeAsc(any(UUID.class))).thenReturn(List.of(account));
-        FinanceDtos.AccountResponse response = new FinanceAccountService(repository).list(UUID.randomUUID()).getFirst();
+        FinanceDtos.AccountResponse response = new FinanceAccountService(repository, investments).list(UUID.randomUUID()).getFirst();
         assertThat(response.balanceArs()).isEqualByComparingTo("1000.00");
     }
 
     @Test void investmentIncomeMovesMoneyFromCashToInvestment() {
         UUID owner = UUID.randomUUID();
+        org.mockito.Mockito.lenient().when(investments.openCostBasisArs(owner)).thenReturn(BigDecimal.ZERO);
         FinanceAccount cash = account(FinanceAccountGrowthMode.MANUAL, "0"); cash.setCode("mercadopago"); cash.setBalanceArs(new BigDecimal("1000.00"));
         FinanceAccount investment = account(FinanceAccountGrowthMode.MANUAL, "0"); investment.setCode("crypto"); investment.setBalanceArs(new BigDecimal("200.00")); investment.setType(FinanceAccountType.CRYPTO);
         when(repository.findActiveForUpdate(owner, "crypto")).thenReturn(java.util.Optional.of(investment));
         when(repository.findActiveForUpdate(owner, "mercadopago")).thenReturn(java.util.Optional.of(cash));
 
-        new FinanceAccountService(repository).applyMovement(owner, "crypto", FinanceBucket.INCOME, new BigDecimal("250.00"));
+        new FinanceAccountService(repository, investments).applyMovement(owner, "crypto", FinanceBucket.INCOME, new BigDecimal("250.00"));
 
         assertThat(cash.getBalanceArs()).isEqualByComparingTo("750.00");
         assertThat(investment.getBalanceArs()).isEqualByComparingTo("450.00");
@@ -51,12 +53,13 @@ class FinanceAccountServiceTest {
 
     @Test void investmentExpenseReturnsMoneyToCash() {
         UUID owner = UUID.randomUUID();
+        org.mockito.Mockito.lenient().when(investments.openCostBasisArs(owner)).thenReturn(BigDecimal.ZERO);
         FinanceAccount cash = account(FinanceAccountGrowthMode.MANUAL, "0"); cash.setCode("mercadopago"); cash.setBalanceArs(new BigDecimal("1000.00"));
         FinanceAccount investment = account(FinanceAccountGrowthMode.MANUAL, "0"); investment.setCode("crypto"); investment.setBalanceArs(new BigDecimal("500.00")); investment.setType(FinanceAccountType.CRYPTO);
         when(repository.findActiveForUpdate(owner, "crypto")).thenReturn(java.util.Optional.of(investment));
         when(repository.findActiveForUpdate(owner, "mercadopago")).thenReturn(java.util.Optional.of(cash));
 
-        new FinanceAccountService(repository).applyMovement(owner, "crypto", FinanceBucket.EXPENSE, new BigDecimal("250.00"));
+        new FinanceAccountService(repository, investments).applyMovement(owner, "crypto", FinanceBucket.EXPENSE, new BigDecimal("250.00"));
 
         assertThat(cash.getBalanceArs()).isEqualByComparingTo("1250.00");
         assertThat(investment.getBalanceArs()).isEqualByComparingTo("250.00");
@@ -64,10 +67,11 @@ class FinanceAccountServiceTest {
 
     @Test void rejectsMovementThatWouldMakeAnAccountNegative() {
         UUID owner = UUID.randomUUID();
+        org.mockito.Mockito.lenient().when(investments.openCostBasisArs(owner)).thenReturn(BigDecimal.ZERO);
         FinanceAccount cash = account(FinanceAccountGrowthMode.MANUAL, "0"); cash.setCode("mercadopago"); cash.setBalanceArs(new BigDecimal("100.00"));
         when(repository.findActiveForUpdate(owner, "mercadopago")).thenReturn(java.util.Optional.of(cash));
 
-        assertThatThrownBy(() -> new FinanceAccountService(repository).applyMovement(owner, "mercadopago", FinanceBucket.EXPENSE, new BigDecimal("101.00")))
+        assertThatThrownBy(() -> new FinanceAccountService(repository, investments).applyMovement(owner, "mercadopago", FinanceBucket.EXPENSE, new BigDecimal("101.00")))
                 .isInstanceOf(BadRequestException.class);
     }
 
