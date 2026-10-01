@@ -18,6 +18,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class ProjectConfigurationServiceTest {
     @Mock ConfigItemRepository repository;
     @Mock ProjectUsageRepository usage;
+    @Mock CategoryUsageRepository categoryUsage;
     @InjectMocks ConfigurationService service;
 
     @Test

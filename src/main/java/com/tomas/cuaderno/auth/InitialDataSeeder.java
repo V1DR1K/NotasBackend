@@ -32,6 +32,7 @@ public class InitialDataSeeder implements CommandLineRunner {
     private void seed(java.util.UUID owner) {
         Set<String> existing = config.findByOwnerIdAndDeletedAtIsNull(owner).stream().map(item -> item.getKind() + ":" + item.getCode().toLowerCase()).collect(java.util.stream.Collectors.toCollection(HashSet::new));
         config.findByOwnerIdAndKindOrderBySortOrderAscCodeAsc(owner, ConfigKind.PROJECT).forEach(item -> existing.add(ConfigKind.PROJECT + ":" + item.getCode().toLowerCase()));
+        config.findByOwnerIdAndKindOrderBySortOrderAscCodeAsc(owner, ConfigKind.CATEGORY).forEach(item -> existing.add(categoryKey(item.getProjectCode(), item.getCode())));
         option(owner, existing, ConfigKind.DAY_STATUS, "green", "Verde", "🟢", 0, true);
         option(owner, existing, ConfigKind.DAY_STATUS, "yellow", "Amarillo", "🟡", 1, true);
         option(owner, existing, ConfigKind.DAY_STATUS, "red", "Rojo", "🔴", 2, true);
@@ -51,26 +52,27 @@ public class InitialDataSeeder implements CommandLineRunner {
         option(owner, existing, ConfigKind.FINANCE_ITEM, "nafta", "Nafta", null, 5, true, FinanceItemType.EXPENSE);
         option(owner, existing, ConfigKind.FINANCE_ITEM, "uber_didi", "Uber/Didi", null, 6, true, FinanceItemType.EXPENSE);
         option(owner, existing, ConfigKind.FINANCE_ITEM, "transferencia", "Transferencia", null, 7, true, FinanceItemType.TRANSFER);
-        option(owner, existing, ConfigKind.NOTE_CATEGORY, "ideas", "Ideas", null, 0, true);
         option(owner, existing, ConfigKind.PROJECT, "personal", "Personal", null, 0, true);
         option(owner, existing, ConfigKind.PROJECT, "facultad", "Facultad", null, 1, true);
         option(owner, existing, ConfigKind.PROJECT, "laburo", "Laburo", null, 2, true);
-        option(owner, existing, ConfigKind.NOTE_CATEGORY, "personal", "Personal", null, 1, true);
-        option(owner, existing, ConfigKind.NOTE_CATEGORY, "work", "Trabajo", null, 2, true);
-        option(owner, existing, ConfigKind.NOTE_CATEGORY, "projects", "Proyectos", null, 3, true);
-        option(owner, existing, ConfigKind.NOTE_CATEGORY, "goals", "Objetivos", null, 4, true);
-        option(owner, existing, ConfigKind.NOTE_CATEGORY, "health", "Salud", null, 5, true);
-        option(owner, existing, ConfigKind.NOTE_CATEGORY, "learning", "Aprendizajes", null, 6, true);
-        option(owner, existing, ConfigKind.NOTE_CATEGORY, "reminders", "Recordatorios", null, 7, true);
-        option(owner, existing, ConfigKind.NOTE_CATEGORY, "important", "Importante", null, 8, true);
-        option(owner, existing, ConfigKind.NOTE_CATEGORY, "inspiration", "Inspiración", null, 9, true);
-        option(owner, existing, ConfigKind.EVENT_CATEGORY, "laburo", "Laburo", null, 0, true);
-        option(owner, existing, ConfigKind.EVENT_CATEGORY, "facultad", "Facultad", null, 1, true);
-        option(owner, existing, ConfigKind.EVENT_CATEGORY, "medico", "Médico", null, 2, true);
-        option(owner, existing, ConfigKind.EVENT_CATEGORY, "tramites", "Trámites", null, 3, true);
-        option(owner, existing, ConfigKind.TASK_CATEGORY, "laburo", "Laburo", null, 0, true);
-        option(owner, existing, ConfigKind.TASK_CATEGORY, "casa", "Casa", null, 1, true);
-        option(owner, existing, ConfigKind.TASK_CATEGORY, "facultad", "Facultad", null, 2, true);
+        category(owner, existing, "personal", "ideas", "Ideas", 0);
+        category(owner, existing, "personal", "personal", "Personal", 1);
+        category(owner, existing, "personal", "projects", "Proyectos", 2);
+        category(owner, existing, "personal", "goals", "Objetivos", 3);
+        category(owner, existing, "personal", "health", "Salud", 4);
+        category(owner, existing, "personal", "learning", "Aprendizajes", 5);
+        category(owner, existing, "personal", "reminders", "Recordatorios", 6);
+        category(owner, existing, "personal", "important", "Importante", 7);
+        category(owner, existing, "personal", "inspiration", "Inspiración", 8);
+        category(owner, existing, "personal", "casa", "Casa", 9);
+        category(owner, existing, "personal", "medico", "Médico", 10);
+        category(owner, existing, "personal", "tramites", "Trámites", 11);
+        category(owner, existing, "personal", "recordatorios", "Recordatorios", 12);
+        category(owner, existing, "personal", "supermercado", "Supermercado", 13);
+        category(owner, existing, "personal", "viajes", "Viajes", 14);
+        category(owner, existing, "facultad", "facultad", "Facultad", 0);
+        category(owner, existing, "laburo", "laburo", "Laburo", 0);
+        category(owner, existing, "laburo", "work", "Trabajo", 1);
     }
     private void option(java.util.UUID owner, Set<String> existing, ConfigKind kind, String code, String label, String emoji, int order, boolean active) {
         option(owner, existing, kind, code, label, emoji, order, active, null);
@@ -79,4 +81,9 @@ public class InitialDataSeeder implements CommandLineRunner {
         if (!existing.add(kind + ":" + code.toLowerCase())) return;
         ConfigItem item = new ConfigItem(); item.setOwnerId(owner); item.setKind(kind); item.setCode(code); item.setLabel(label); item.setEmoji(emoji); item.setSortOrder(order); item.setActive(active); item.setFinanceType(financeType); config.save(item);
     }
+    private void category(java.util.UUID owner, Set<String> existing, String projectCode, String code, String label, int order) {
+        if (!existing.add(categoryKey(projectCode, code))) return;
+        ConfigItem item = new ConfigItem(); item.setOwnerId(owner); item.setKind(ConfigKind.CATEGORY); item.setCode(code); item.setLabel(label); item.setProjectCode(projectCode); item.setSortOrder(order); item.setActive(true); config.save(item);
+    }
+    private String categoryKey(String projectCode, String code) { return ConfigKind.CATEGORY + ":" + projectCode.toLowerCase() + ":" + code.toLowerCase(); }
 }

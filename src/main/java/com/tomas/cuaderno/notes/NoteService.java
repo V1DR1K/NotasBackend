@@ -28,20 +28,30 @@ import org.springframework.transaction.annotation.Transactional;
             spec = spec.and((r, q, c) -> c.or(c.like(c.lower(r.get("title")), pattern, '\\'), c.like(c.lower(r.get("body")), pattern, '\\')));
         }
         Page<Note> result = repository.findAll(spec, page);
-        Map<String, ConfigurationDtos.ConfigOptionResponse> categories = configuration.indexIncludingDeleted(owner, ConfigKind.NOTE_CATEGORY);
+        Map<String, ConfigurationDtos.ConfigOptionResponse> categories = configuration.categoriesIndexIncludingDeleted(owner);
         return PageResponse.from(result.map(x -> response(x, categories)));
     }
     public NoteDtos.Response get(UUID owner, UUID id) { return response(owner, repository.findByIdAndOwnerIdAndDeletedAtIsNull(id, owner).orElseThrow(() -> new NotFoundException("Note not found"))); }
     public long count(UUID owner) { return repository.countByOwnerIdAndDeletedAtIsNull(owner); }
-    @Transactional public NoteDtos.Response create(UUID owner, NoteDtos.CreateRequest request) { validateCategory(owner, request.categoryCode()); Note item = new Note(); item.setOwnerId(owner); item.setTitle(request.title().trim()); item.setBody(request.body().trim()); item.setCategoryCode(normalize(request.categoryCode())); item.setProjectCode(configuration.projectCode(owner, request.projectCode())); item.setDate(request.date()); return response(owner, repository.save(item)); }
-    @Transactional public NoteDtos.Response patch(UUID owner, UUID id, NoteDtos.PatchRequest request) { Note item = repository.findByIdAndOwnerIdAndDeletedAtIsNull(id, owner).orElseThrow(() -> new NotFoundException("Note not found")); if (request.categoryCode() != null) { validateCategory(owner, request.categoryCode()); item.setCategoryCode(normalize(request.categoryCode())); } if (request.projectCode() != null) item.setProjectCode(configuration.projectCode(owner, request.projectCode())); if (request.title() != null) { if (request.title().isBlank()) throw new com.tomas.cuaderno.common.errors.BadRequestException("title cannot be blank"); item.setTitle(request.title().trim()); } if (request.body() != null) { if (request.body().isBlank()) throw new com.tomas.cuaderno.common.errors.BadRequestException("body cannot be blank"); item.setBody(request.body().trim()); } if (request.date() != null) item.setDate(request.date()); return response(owner, item); }
+    @Transactional public NoteDtos.Response create(UUID owner, NoteDtos.CreateRequest request) { String projectCode = configuration.projectCode(owner, request.projectCode()); validateCategory(owner, projectCode, request.categoryCode()); Note item = new Note(); item.setOwnerId(owner); item.setTitle(request.title().trim()); item.setBody(request.body().trim()); item.setCategoryCode(normalize(request.categoryCode())); item.setProjectCode(projectCode); item.setDate(request.date()); return response(owner, repository.save(item)); }
+    @Transactional public NoteDtos.Response patch(UUID owner, UUID id, NoteDtos.PatchRequest request) {
+        Note item = repository.findByIdAndOwnerIdAndDeletedAtIsNull(id, owner).orElseThrow(() -> new NotFoundException("Note not found"));
+        if (request.categoryCode() != null || request.projectCode() != null) {
+            String nextProject = request.projectCode() == null ? item.getProjectCode() : configuration.projectCode(owner, request.projectCode());
+            String nextCategory = request.categoryCode() == null ? item.getCategoryCode() : normalize(request.categoryCode());
+            configuration.requireCategoryForUpdate(owner, item.getProjectCode(), item.getCategoryCode(), nextProject, nextCategory); item.setProjectCode(nextProject); item.setCategoryCode(nextCategory);
+        }
+        if (request.title() != null) { if (request.title().isBlank()) throw new com.tomas.cuaderno.common.errors.BadRequestException("title cannot be blank"); item.setTitle(request.title().trim()); }
+        if (request.body() != null) { if (request.body().isBlank()) throw new com.tomas.cuaderno.common.errors.BadRequestException("body cannot be blank"); item.setBody(request.body().trim()); }
+        if (request.date() != null) item.setDate(request.date()); return response(owner, item);
+    }
     @Transactional public void delete(UUID owner, UUID id) { Note item = repository.findByIdAndOwnerIdAndDeletedAtIsNull(id, owner).orElseThrow(() -> new NotFoundException("Note not found")); item.setDeletedAt(Instant.now()); }
-    private void validateCategory(UUID owner, String code) { configuration.requireActive(owner, ConfigKind.NOTE_CATEGORY, code, "categoryCode"); }
+    private void validateCategory(UUID owner, String projectCode, String code) { configuration.requireActiveCategory(owner, projectCode, code); }
     private String normalize(String value) { return value == null ? null : value.trim(); }
     private String escapeLike(String value) { return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_"); }
-    private NoteDtos.Response response(UUID owner, Note item) { return response(item, configuration.indexIncludingDeleted(owner, ConfigKind.NOTE_CATEGORY)); }
+    private NoteDtos.Response response(UUID owner, Note item) { return response(item, configuration.categoriesIndexIncludingDeleted(owner)); }
     private NoteDtos.Response response(Note item, Map<String, ConfigurationDtos.ConfigOptionResponse> categories) {
-        ConfigurationDtos.ConfigOptionResponse category = item.getCategoryCode() == null ? null : categories.get(item.getCategoryCode().toLowerCase(Locale.ROOT));
+        ConfigurationDtos.ConfigOptionResponse category = item.getCategoryCode() == null ? null : categories.get(ConfigurationService.categoryKey(item.getProjectCode(), item.getCategoryCode()));
         if (item.getCategoryCode() != null && category == null) throw new NotFoundException("Configuration option not found");
         return new NoteDtos.Response(item.getId(), item.getTitle(), item.getBody(), category, item.getDate(), item.getCreatedAt(), item.getUpdatedAt(), item.getProjectCode());
     }
