@@ -11,6 +11,7 @@ public interface ConfigItemRepository extends JpaRepository<ConfigItem, UUID> {
     List<ConfigItem> findByOwnerIdAndKindOrderBySortOrderAscCodeAsc(UUID ownerId, ConfigKind kind);
     Optional<ConfigItem> findByIdAndOwnerIdAndKindAndDeletedAtIsNull(UUID id, UUID ownerId, ConfigKind kind);
     Optional<ConfigItem> findByOwnerIdAndKindAndCodeIgnoreCaseAndDeletedAtIsNull(UUID ownerId, ConfigKind kind, String code);
+    Optional<ConfigItem> findByOwnerIdAndKindAndProjectCodeIgnoreCaseAndCodeIgnoreCaseAndDeletedAtIsNull(UUID ownerId, ConfigKind kind, String projectCode, String code);
     boolean existsByOwnerIdAndKindAndCodeIgnoreCaseAndDeletedAtIsNull(UUID ownerId, ConfigKind kind, String code);
     boolean existsByOwnerIdAndKindAndProjectCodeIgnoreCaseAndCodeIgnoreCaseAndDeletedAtIsNull(UUID ownerId, ConfigKind kind, String projectCode, String code);
     Optional<ConfigItem> findByIdAndOwnerIdAndKind(UUID id, UUID ownerId, ConfigKind kind);
