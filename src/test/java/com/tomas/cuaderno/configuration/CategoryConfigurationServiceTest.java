@@ -39,7 +39,7 @@ class CategoryConfigurationServiceTest {
     }
 
     @Test
-    void movingCategoryMovesAllLinkedRecordsBeforeChangingItsProject() {
+    void movingCategoryMovesAllLinkedRecordsBeforeChangingItsProject() throws NoSuchMethodException {
         UUID owner = UUID.randomUUID();
         UUID categoryId = UUID.randomUUID();
         ConfigItem category = new ConfigItem();
