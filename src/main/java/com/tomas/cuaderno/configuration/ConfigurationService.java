@@ -11,7 +11,8 @@ public class ConfigurationService {
     private static final Set<String> DAY_STATUS_CODES = Set.of("green", "yellow", "red");
     private final ConfigItemRepository repository;
     private final ProjectUsageRepository projectUsage;
-    public ConfigurationService(ConfigItemRepository repository, ProjectUsageRepository projectUsage) { this.repository = repository; this.projectUsage = projectUsage; }
+    private final CategoryUsageRepository categoryUsage;
+    public ConfigurationService(ConfigItemRepository repository, ProjectUsageRepository projectUsage, CategoryUsageRepository categoryUsage) { this.repository = repository; this.projectUsage = projectUsage; this.categoryUsage = categoryUsage; }
     public List<ConfigurationDtos.ConfigOptionResponse> list(UUID owner, ConfigKind kind) { return repository.findByOwnerIdAndKindAndDeletedAtIsNullOrderBySortOrderAscCodeAsc(owner, kind).stream().map(this::response).toList(); }
     public Map<String, ConfigurationDtos.ConfigOptionResponse> index(UUID owner, ConfigKind kind) {
         return list(owner, kind).stream().collect(java.util.stream.Collectors.toMap(option -> option.code().toLowerCase(Locale.ROOT), option -> option, (left, right) -> left, LinkedHashMap::new));
@@ -19,6 +20,50 @@ public class ConfigurationService {
     public Map<String, ConfigurationDtos.ConfigOptionResponse> indexIncludingDeleted(UUID owner, ConfigKind kind) {
         return repository.findByOwnerIdAndKindOrderBySortOrderAscCodeAsc(owner, kind).stream().map(this::response).collect(java.util.stream.Collectors.toMap(option -> option.code().toLowerCase(Locale.ROOT), option -> option, (left, right) -> left, LinkedHashMap::new));
     }
+    public Map<String, ConfigurationDtos.ConfigOptionResponse> categoriesIndexIncludingDeleted(UUID owner) {
+        return repository.findByOwnerIdAndKindOrderBySortOrderAscCodeAsc(owner, ConfigKind.CATEGORY).stream()
+                .collect(java.util.stream.Collectors.toMap(item -> categoryKey(item.getProjectCode(), item.getCode()), this::response, (left, right) -> left, LinkedHashMap::new));
+    }
+    public List<ConfigurationDtos.CategoryResponse> listCategories(UUID owner, String projectCode) {
+        if (projectCode == null || projectCode.isBlank()) return repository.findByOwnerIdAndKindAndDeletedAtIsNullOrderBySortOrderAscCodeAsc(owner, ConfigKind.CATEGORY).stream().map(this::categoryResponse).toList();
+        String canonicalProject = projectCode(owner, projectCode);
+        return repository.findByOwnerIdAndKindAndProjectCodeIgnoreCaseAndDeletedAtIsNullOrderBySortOrderAscCodeAsc(owner, ConfigKind.CATEGORY, canonicalProject).stream().map(this::categoryResponse).toList();
+    }
+    @Transactional public ConfigurationDtos.CategoryResponse createCategory(UUID owner, ConfigurationDtos.CategoryRequest request) {
+        String canonicalProject = projectCode(owner, request.projectCode());
+        String code = request.code().trim();
+        if (repository.existsByOwnerIdAndKindAndProjectCodeIgnoreCaseAndCodeIgnoreCaseAndDeletedAtIsNull(owner, ConfigKind.CATEGORY, canonicalProject, code)) throw new BadRequestException("Ya existe una categoría con ese código en este proyecto");
+        ConfigItem item = new ConfigItem(); item.setOwnerId(owner); item.setKind(ConfigKind.CATEGORY); item.setCode(code); item.setLabel(request.label().trim()); item.setProjectCode(canonicalProject); item.setSortOrder(request.sortOrder()); item.setActive(request.active());
+        return categoryResponse(repository.save(item));
+    }
+    @Transactional public ConfigurationDtos.CategoryResponse patchCategory(UUID owner, UUID id, ConfigurationDtos.PatchRequest request) {
+        ConfigItem item = repository.findByIdAndOwnerIdAndKindAndDeletedAtIsNull(id, owner, ConfigKind.CATEGORY).orElseThrow(() -> new NotFoundException("Category not found"));
+        if (request.label() != null) { if (request.label().isBlank()) throw new BadRequestException("label cannot be blank"); item.setLabel(request.label().trim()); }
+        if (request.sortOrder() != null) item.setSortOrder(request.sortOrder());
+        if (request.active() != null) item.setActive(request.active());
+        if (request.projectCode() != null && !request.projectCode().isBlank() && !request.projectCode().equalsIgnoreCase(item.getProjectCode())) {
+            String nextProject = projectCode(owner, request.projectCode());
+            if (repository.existsByOwnerIdAndKindAndProjectCodeIgnoreCaseAndCodeIgnoreCaseAndDeletedAtIsNull(owner, ConfigKind.CATEGORY, nextProject, item.getCode())) throw new BadRequestException("Ya existe una categoría con ese código en el proyecto de destino");
+            categoryUsage.moveRecords(owner, item.getCode(), item.getProjectCode(), nextProject);
+            item.setProjectCode(nextProject);
+        }
+        return categoryResponse(item);
+    }
+    @Transactional public void deleteCategory(UUID owner, UUID id) {
+        ConfigItem item = repository.findByIdAndOwnerIdAndKindAndDeletedAtIsNull(id, owner, ConfigKind.CATEGORY).orElseThrow(() -> new NotFoundException("Category not found"));
+        item.setDeletedAt(Instant.now());
+    }
+    public ConfigItem requireActiveCategory(UUID owner, String projectCode, String code) {
+        String canonicalProject = projectCode(owner, projectCode);
+        if (code == null || code.isBlank()) throw new BadRequestException("categoryCode is required");
+        return repository.findByOwnerIdAndKindAndProjectCodeIgnoreCaseAndCodeIgnoreCaseAndDeletedAtIsNull(owner, ConfigKind.CATEGORY, canonicalProject, code)
+                .filter(ConfigItem::isActive).orElseThrow(() -> new BadRequestException("Unknown or inactive categoryCode for this project"));
+    }
+    public void requireCategoryForUpdate(UUID owner, String currentProject, String currentCode, String nextProject, String nextCode) {
+        if (currentProject != null && currentCode != null && currentProject.equalsIgnoreCase(nextProject) && currentCode.equalsIgnoreCase(nextCode)) return;
+        requireActiveCategory(owner, nextProject, nextCode);
+    }
+    public static String categoryKey(String projectCode, String code) { return projectCode.toLowerCase(Locale.ROOT) + ":" + code.toLowerCase(Locale.ROOT); }
     @Transactional public ConfigurationDtos.ConfigOptionResponse createDayStatus(UUID owner, ConfigurationDtos.DayStatusRequest request) { requireCanonicalDayStatus(request.code()); return create(owner, ConfigKind.DAY_STATUS, request.code(), request.label(), request.emoji(), request.sortOrder(), true, null); }
     @Transactional public ConfigurationDtos.ConfigOptionResponse createOption(UUID owner, ConfigKind kind, ConfigurationDtos.OptionRequest request) { return create(owner, kind, request.code(), request.label(), null, request.sortOrder(), request.active(), financeType(kind, request.financeType())); }
     @Transactional public ConfigurationDtos.ConfigOptionResponse patch(UUID owner, ConfigKind kind, String code, ConfigurationDtos.PatchRequest request) {
@@ -40,4 +85,5 @@ public class ConfigurationService {
     private FinanceItemType financeType(ConfigKind kind, FinanceItemType type) { if (kind == ConfigKind.FINANCE_ITEM && type == null) throw new BadRequestException("financeType is required"); if (kind != ConfigKind.FINANCE_ITEM && type != null) throw new BadRequestException("financeType is only valid for finance items"); return type; }
     private boolean isTransfer(ConfigItem item) { return "transferencia".equalsIgnoreCase(item.getCode()); }
     private ConfigurationDtos.ConfigOptionResponse response(ConfigItem item) { return new ConfigurationDtos.ConfigOptionResponse(item.getCode(), item.getLabel(), item.getEmoji(), item.getSortOrder(), item.isActive(), item.getFinanceType()); }
+    private ConfigurationDtos.CategoryResponse categoryResponse(ConfigItem item) { return new ConfigurationDtos.CategoryResponse(item.getId(), item.getCode(), item.getLabel(), item.getSortOrder(), item.isActive(), item.getProjectCode()); }
 }

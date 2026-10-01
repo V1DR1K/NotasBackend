@@ -10,6 +10,7 @@ public class ConfigItem extends AuditableEntity {
     @Column(nullable = false, length = 160) private String label;
     @Column(length = 16) private String emoji;
     @Enumerated(EnumType.STRING) @Column(name = "finance_type", length = 20) private FinanceItemType financeType;
+    @Column(name = "project_code", length = 80) private String projectCode;
     @Column(nullable = false) private boolean active = true;
     @Column(name = "sort_order", nullable = false) private int sortOrder;
     public ConfigKind getKind() { return kind; } public void setKind(ConfigKind v) { kind = v; }
@@ -17,6 +18,7 @@ public class ConfigItem extends AuditableEntity {
     public String getLabel() { return label; } public void setLabel(String v) { label = v; }
     public String getEmoji() { return emoji; } public void setEmoji(String v) { emoji = v; }
     public FinanceItemType getFinanceType() { return financeType; } public void setFinanceType(FinanceItemType v) { financeType = v; }
+    public String getProjectCode() { return projectCode; } public void setProjectCode(String v) { projectCode = v; }
     public boolean isActive() { return active; } public void setActive(boolean v) { active = v; }
     public int getSortOrder() { return sortOrder; } public void setSortOrder(int v) { sortOrder = v; }
 }

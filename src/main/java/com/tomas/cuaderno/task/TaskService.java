@@ -43,17 +43,18 @@ public class TaskService {
         if (to != null) spec = spec.and((root, query, cb) -> cb.lessThanOrEqualTo(root.get("dueDate"), to));
         if (completedAfter != null) spec = spec.and((root, query, cb) -> cb.greaterThanOrEqualTo(root.get("completedAt"), completedAfter));
         if (completedBefore != null) spec = spec.and((root, query, cb) -> cb.lessThan(root.get("completedAt"), completedBefore));
-        Map<String, ConfigurationDtos.ConfigOptionResponse> categories = configuration.indexIncludingDeleted(owner, ConfigKind.TASK_CATEGORY);
+        Map<String, ConfigurationDtos.ConfigOptionResponse> categories = configuration.categoriesIndexIncludingDeleted(owner);
         return PageResponse.from(repository.findAll(spec, pageable).map(task -> response(task, categories)));
     }
 
     public TaskDtos.Response get(UUID owner, UUID id) {
-        return response(find(owner, id), configuration.indexIncludingDeleted(owner, ConfigKind.TASK_CATEGORY));
+        return response(find(owner, id), configuration.categoriesIndexIncludingDeleted(owner));
     }
 
     @Transactional
     public TaskDtos.Response create(UUID owner, TaskDtos.CreateRequest request) {
-        configuration.requireActive(owner, ConfigKind.TASK_CATEGORY, request.categoryCode(), "categoryCode");
+        String projectCode = configuration.projectCode(owner, request.projectCode());
+        configuration.requireActiveCategory(owner, projectCode, request.categoryCode());
         Task task = new Task();
         task.setOwnerId(owner);
         task.setTitle(request.title().trim());
@@ -61,10 +62,10 @@ public class TaskService {
         task.setStatus(request.status() == null ? TaskStatus.PENDING : request.status());
         if (task.getStatus() == TaskStatus.COMPLETED) task.setCompletedAt(Instant.now());
         task.setCategoryCode(normalize(request.categoryCode()));
-        task.setProjectCode(configuration.projectCode(owner, request.projectCode()));
+        task.setProjectCode(projectCode);
         task.setDueDate(request.dueDate());
         Task saved = repository.save(task);
-        return response(saved, configuration.indexIncludingDeleted(owner, ConfigKind.TASK_CATEGORY));
+        return response(saved, configuration.categoriesIndexIncludingDeleted(owner));
     }
 
     @Transactional
@@ -75,17 +76,19 @@ public class TaskService {
             task.setTitle(request.title().trim());
         }
         if (request.detail() != null) task.setDetail(cleanDetail(request.detail()));
-        if (request.categoryCode() != null) {
-            configuration.requireActive(owner, ConfigKind.TASK_CATEGORY, request.categoryCode(), "categoryCode");
-            task.setCategoryCode(normalize(request.categoryCode()));
+        if (request.categoryCode() != null || request.projectCode() != null) {
+            String nextProject = request.projectCode() == null ? task.getProjectCode() : configuration.projectCode(owner, request.projectCode());
+            String nextCategory = request.categoryCode() == null ? task.getCategoryCode() : normalize(request.categoryCode());
+            configuration.requireCategoryForUpdate(owner, task.getProjectCode(), task.getCategoryCode(), nextProject, nextCategory);
+            task.setProjectCode(nextProject);
+            task.setCategoryCode(nextCategory);
         }
-        if (request.projectCode() != null) task.setProjectCode(configuration.projectCode(owner, request.projectCode()));
         if (request.status() != null && request.status() != task.getStatus()) {
             task.setStatus(request.status());
             task.setCompletedAt(request.status() == TaskStatus.COMPLETED ? Instant.now() : null);
         }
         if (request.dueDate() != null) task.setDueDate(parseDueDate(request.dueDate()));
-        return response(task, configuration.indexIncludingDeleted(owner, ConfigKind.TASK_CATEGORY));
+        return response(task, configuration.categoriesIndexIncludingDeleted(owner));
     }
 
     @Transactional
@@ -105,7 +108,7 @@ public class TaskService {
         Specification<Task> open = activeFor(owner).and((root, query, cb) -> root.get("status").in(TaskStatus.PENDING, TaskStatus.IN_PROGRESS));
         List<Task> openTasks = repository.findAll(open, PageRequest.of(0, 100, Sort.by(Sort.Direction.ASC, "dueDate").and(Sort.by(Sort.Direction.DESC, "updatedAt")))).getContent();
         long overdue = openTasks.stream().filter(task -> task.getDueDate() != null && task.getDueDate().isBefore(today)).count();
-        Map<String, ConfigurationDtos.ConfigOptionResponse> categories = configuration.indexIncludingDeleted(owner, ConfigKind.TASK_CATEGORY);
+        Map<String, ConfigurationDtos.ConfigOptionResponse> categories = configuration.categoriesIndexIncludingDeleted(owner);
         Comparator<Task> dueOrder = Comparator.comparing(Task::getDueDate, Comparator.nullsLast(Comparator.naturalOrder())).thenComparing(Task::getUpdatedAt, Comparator.nullsLast(Comparator.reverseOrder()));
         List<TaskDtos.Response> upcoming = openTasks.stream().sorted(dueOrder).limit(5).map(task -> response(task, categories)).toList();
         List<TaskDtos.Response> recent = repository.findAll(activeFor(owner), PageRequest.of(0, 5, Sort.by(Sort.Direction.DESC, "updatedAt"))).getContent().stream().map(task -> response(task, categories)).toList();
@@ -121,7 +124,7 @@ public class TaskService {
     }
 
     private TaskDtos.Response response(Task task, Map<String, ConfigurationDtos.ConfigOptionResponse> categories) {
-        ConfigurationDtos.ConfigOptionResponse category = categories.get(task.getCategoryCode().toLowerCase(Locale.ROOT));
+        ConfigurationDtos.ConfigOptionResponse category = categories.get(ConfigurationService.categoryKey(task.getProjectCode(), task.getCategoryCode()));
         if (category == null) throw new NotFoundException("Configuration option not found");
         return new TaskDtos.Response(task.getId(), task.getTitle(), task.getDetail(), task.getStatus(), category, task.getDueDate(), task.getCreatedAt(), task.getUpdatedAt(), task.getCompletedAt(), task.getProjectCode());
     }

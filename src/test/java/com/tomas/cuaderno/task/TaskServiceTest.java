@@ -4,13 +4,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.node.NullNode;
 import com.tomas.cuaderno.common.errors.BadRequestException;
-import com.tomas.cuaderno.configuration.ConfigKind;
+
 import com.tomas.cuaderno.configuration.ConfigurationDtos;
 import com.tomas.cuaderno.configuration.ConfigurationService;
 import java.time.LocalDate;
@@ -19,6 +21,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -34,11 +37,19 @@ class TaskServiceTest {
     @Mock ConfigurationService configuration;
     @InjectMocks TaskService service;
 
+    @BeforeEach
+    void useRequestedOrPersonalProject() {
+        lenient().when(configuration.projectCode(any(UUID.class), nullable(String.class))).thenAnswer(invocation -> {
+            String project = invocation.getArgument(1);
+            return project == null ? "personal" : project;
+        });
+    }
+
     @Test
     void createTask_whenCategoryIsActive_shouldStartPending() {
         UUID owner = UUID.randomUUID();
         var category = new ConfigurationDtos.ConfigOptionResponse("laburo", "Laburo", null, 0, true, null);
-        when(configuration.indexIncludingDeleted(owner, ConfigKind.TASK_CATEGORY)).thenReturn(Map.of("laburo", category));
+        when(configuration.categoriesIndexIncludingDeleted(owner)).thenReturn(Map.of("laburo:laburo", category, "personal:laburo", category));
         when(configuration.projectCode(owner, "laburo")).thenReturn("laburo");
         when(repository.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -48,14 +59,14 @@ class TaskServiceTest {
         assertThat(result.title()).isEqualTo("Entregar informe");
         assertThat(result.dueDate()).isEqualTo(LocalDate.of(2026, 10, 1));
         assertThat(result.projectCode()).isEqualTo("laburo");
-        verify(configuration).requireActive(owner, ConfigKind.TASK_CATEGORY, "laburo", "categoryCode");
+        verify(configuration).requireActiveCategory(owner, "laburo", "laburo");
     }
 
     @Test
     void createTask_whenCreatedCompleted_shouldRecordCompletionTime() {
         UUID owner = UUID.randomUUID();
         var category = new ConfigurationDtos.ConfigOptionResponse("laburo", "Laburo", null, 0, true, null);
-        when(configuration.indexIncludingDeleted(owner, ConfigKind.TASK_CATEGORY)).thenReturn(Map.of("laburo", category));
+        when(configuration.categoriesIndexIncludingDeleted(owner)).thenReturn(Map.of("laburo:laburo", category, "personal:laburo", category));
         when(repository.save(any(Task.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         var result = service.create(owner, new TaskDtos.CreateRequest("Entregar informe", null, "laburo", TaskStatus.COMPLETED, null, null));
@@ -67,7 +78,7 @@ class TaskServiceTest {
     @Test
     void createTask_whenCategoryIsInactive_shouldRejectRequest() {
         UUID owner = UUID.randomUUID();
-        when(configuration.requireActive(eq(owner), eq(ConfigKind.TASK_CATEGORY), eq("otra"), eq("categoryCode")))
+        when(configuration.requireActiveCategory(eq(owner), eq("personal"), eq("otra")))
                 .thenThrow(new BadRequestException("Unknown or inactive categoryCode"));
 
         assertThatThrownBy(() -> service.create(owner, new TaskDtos.CreateRequest("Leer", null, "otra", null, null, null)))
@@ -84,11 +95,12 @@ class TaskServiceTest {
         task.setOwnerId(owner);
         task.setStatus(TaskStatus.PENDING);
         task.setCategoryCode("laburo");
+        task.setProjectCode("personal");
         task.setTitle("Tarea");
         task.setDueDate(LocalDate.of(2026, 9, 20));
         var category = new ConfigurationDtos.ConfigOptionResponse("laburo", "Laburo", null, 0, true, null);
         when(repository.findById(id)).thenReturn(Optional.of(task));
-        when(configuration.indexIncludingDeleted(owner, ConfigKind.TASK_CATEGORY)).thenReturn(Map.of("laburo", category));
+        when(configuration.categoriesIndexIncludingDeleted(owner)).thenReturn(Map.of("laburo:laburo", category, "personal:laburo", category));
 
         var result = service.patch(owner, id, new TaskDtos.PatchRequest(null, null, null, TaskStatus.COMPLETED, NullNode.getInstance(), null));
 
@@ -105,7 +117,7 @@ class TaskServiceTest {
         Task task = completedTask(owner, completedAt);
         var category = new ConfigurationDtos.ConfigOptionResponse("laburo", "Laburo", null, 0, true, null);
         when(repository.findById(id)).thenReturn(Optional.of(task));
-        when(configuration.indexIncludingDeleted(owner, ConfigKind.TASK_CATEGORY)).thenReturn(Map.of("laburo", category));
+        when(configuration.categoriesIndexIncludingDeleted(owner)).thenReturn(Map.of("laburo:laburo", category, "personal:laburo", category));
 
         var result = service.patch(owner, id, new TaskDtos.PatchRequest("Título actualizado", null, null, null, null, null));
 
@@ -119,7 +131,7 @@ class TaskServiceTest {
         Task task = completedTask(owner, Instant.parse("2026-09-20T12:00:00Z"));
         var category = new ConfigurationDtos.ConfigOptionResponse("laburo", "Laburo", null, 0, true, null);
         when(repository.findById(id)).thenReturn(Optional.of(task));
-        when(configuration.indexIncludingDeleted(owner, ConfigKind.TASK_CATEGORY)).thenReturn(Map.of("laburo", category));
+        when(configuration.categoriesIndexIncludingDeleted(owner)).thenReturn(Map.of("laburo:laburo", category, "personal:laburo", category));
 
         var result = service.patch(owner, id, new TaskDtos.PatchRequest(null, null, null, TaskStatus.IN_PROGRESS, null, null));
 
@@ -132,6 +144,7 @@ class TaskServiceTest {
         task.setOwnerId(owner);
         task.setTitle("Tarea");
         task.setCategoryCode("laburo");
+        task.setProjectCode("personal");
         task.setStatus(TaskStatus.COMPLETED);
         task.setCompletedAt(completedAt);
         return task;
@@ -145,11 +158,12 @@ class TaskServiceTest {
         task.setOwnerId(owner);
         task.setTitle("Entregar informe");
         task.setCategoryCode("laburo");
+        task.setProjectCode("personal");
         task.setStatus(TaskStatus.COMPLETED);
         task.setDueDate(dueDate);
         var category = new ConfigurationDtos.ConfigOptionResponse("laburo", "Laburo", null, 0, true, null);
         var pageable = PageRequest.of(0, 100, Sort.by(Sort.Direction.ASC, "dueDate"));
-        when(configuration.indexIncludingDeleted(owner, ConfigKind.TASK_CATEGORY)).thenReturn(Map.of("laburo", category));
+        when(configuration.categoriesIndexIncludingDeleted(owner)).thenReturn(Map.of("laburo:laburo", category, "personal:laburo", category));
         when(repository.findAll(any(Specification.class), eq(pageable))).thenReturn(new PageImpl<>(java.util.List.of(task), pageable, 1));
 
         var result = service.list(owner, null, null, null, LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 31), null, null, pageable);
