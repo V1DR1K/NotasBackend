@@ -30,7 +30,7 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 public class DatabaseManagerService {
     private static final Map<String, String> LABELS = Map.of("scalegrams", "ScaleGrams", "whatplan", "Whatplan", "notes", "Notes");
-    private static final Map<String, String> OWNER_ROLES = Map.of("scalegrams", "scalegrams_repository_owner", "whatplan", "whatplan_migrator", "notes", "notes_repository_owner");
+    private static final Map<String, String> OWNER_ROLES = Map.of("scalegrams", "scalegrams_repository_owner", "whatplan", "whatplan_repository_admin", "notes", "notes_repository_owner");
     private static final ScheduledExecutorService TIMEOUTS = Executors.newScheduledThreadPool(1, task -> {
         Thread thread = new Thread(task, "database-script-timeout"); thread.setDaemon(true); return thread;
     });
