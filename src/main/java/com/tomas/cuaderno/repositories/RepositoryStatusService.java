@@ -29,8 +29,8 @@ public class RepositoryStatusService {
     private static final List<RepositorySource> SOURCES = List.of(
             new RepositorySource("scalegrams-frontend", "scalegrams", "ScaleGrams", "frontend", "Frontend", "V1DR1K", "kcalFrontend"),
             new RepositorySource("scalegrams-backend", "scalegrams", "ScaleGrams", "backend", "Backend", "V1DR1K", "kcalBackend"),
-            new RepositorySource("whatplan-frontend", "whatplan", "Whatplan", "frontend", "Frontend", "V1DR1K", "whereFoodFrontend"),
-            new RepositorySource("whatplan-backend", "whatplan", "Whatplan", "backend", "Backend", "V1DR1K", "whereFoodBackend"),
+            new RepositorySource("whatplan-frontend", "whatplan", "Whatplan", "frontend", "Frontend", "V1DR1K", "WhatPlanFrontend"),
+            new RepositorySource("whatplan-backend", "whatplan", "Whatplan", "backend", "Backend", "V1DR1K", "WhatPlanBackend"),
             new RepositorySource("notes-frontend", "notes", "Notes", "frontend", "Frontend", "V1DR1K", "NotesFrontend"),
             new RepositorySource("notes-backend", "notes", "Notes", "backend", "Backend", "V1DR1K", "NotasBackend"));
 

@@ -17,8 +17,11 @@ public class GithubActionsConfiguration {
     @Bean
     GithubActionsClient githubActionsClient(RestClient.Builder builder, RepositoryStatusProperties properties) {
         var timeout = properties.getGithub().getTimeout();
-        var requestFactory = new JdkClientHttpRequestFactory(
-                HttpClient.newBuilder().connectTimeout(timeout).build());
+        var httpClient = HttpClient.newBuilder()
+                .connectTimeout(timeout)
+                .followRedirects(HttpClient.Redirect.NORMAL)
+                .build();
+        var requestFactory = new JdkClientHttpRequestFactory(httpClient);
         requestFactory.setReadTimeout(timeout);
 
         RestClient.Builder configured = builder
