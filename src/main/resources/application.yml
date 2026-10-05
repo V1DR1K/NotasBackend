@@ -51,7 +51,7 @@ repositories:
     api-base-url: ${REPOSITORY_GITHUB_API_BASE_URL:https://api.github.com}
     api-token: ${REPOSITORY_GITHUB_TOKEN:}
     timeout-ms: ${REPOSITORY_GITHUB_TIMEOUT_MS:5000}
-    cache-ttl: ${REPOSITORY_GITHUB_CACHE_TTL:10m}
+    cache-ttl: ${REPOSITORY_GITHUB_CACHE_TTL:4h}
   images:
     status-file: ${REPOSITORY_IMAGE_STATUS_FILE:/var/lib/cuaderno/repository-images.json}
   databases:

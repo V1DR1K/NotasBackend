@@ -11,7 +11,6 @@ import com.tomas.cuaderno.repositories.RepositoryStatusDtos.Project;
 import com.tomas.cuaderno.repositories.RepositoryStatusDtos.Response;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -27,7 +26,6 @@ import org.springframework.web.client.RestClientException;
 @Service
 public class RepositoryStatusService {
     private static final Logger log = LoggerFactory.getLogger(RepositoryStatusService.class);
-    private static final Duration MANUAL_REFRESH_COOLDOWN = Duration.ofMinutes(15);
     private static final List<RepositorySource> SOURCES = List.of(
             new RepositorySource("scalegrams-frontend", "scalegrams", "ScaleGrams", "frontend", "Frontend", "V1DR1K", "kcalFrontend"),
             new RepositorySource("scalegrams-backend", "scalegrams", "ScaleGrams", "backend", "Backend", "V1DR1K", "kcalBackend"),
@@ -41,7 +39,6 @@ public class RepositoryStatusService {
     private final ObjectMapper objectMapper;
     private final Object cacheLock = new Object();
     private volatile PipelineCache cache;
-    private volatile Instant manualRefreshAvailableAt;
 
     public RepositoryStatusService(
             GithubActionsClient github,
@@ -71,13 +68,7 @@ public class RepositoryStatusService {
     public Response refreshStatus() {
         PipelineCache current;
         synchronized (cacheLock) {
-            Instant now = Instant.now();
-            if (cache == null
-                    || manualRefreshAvailableAt == null
-                    || !now.isBefore(manualRefreshAvailableAt)) {
-                cache = fetchPipelines(cache);
-                manualRefreshAvailableAt = cache.checkedAt().plus(MANUAL_REFRESH_COOLDOWN);
-            }
+            cache = fetchPipelines(cache);
             current = cache;
         }
         return response(current);
@@ -92,7 +83,6 @@ public class RepositoryStatusService {
         return new Response(
                 current.checkedAt(),
                 current.checkedAt().plus(properties.getGithub().getCacheTtl()),
-                manualRefreshAvailableAt,
                 projects);
     }
 

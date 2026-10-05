@@ -16,7 +16,7 @@ public class RepositoryStatusProperties {
         private String apiBaseUrl = "https://api.github.com";
         private String apiToken = "";
         private long timeoutMs = 5_000;
-        private Duration cacheTtl = Duration.ofMinutes(10);
+        private Duration cacheTtl = Duration.ofHours(4);
 
         public String getApiBaseUrl() { return apiBaseUrl; }
         public void setApiBaseUrl(String apiBaseUrl) { this.apiBaseUrl = apiBaseUrl; }

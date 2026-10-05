@@ -6,7 +6,7 @@ import java.util.List;
 public final class RepositoryStatusDtos {
     private RepositoryStatusDtos() {}
 
-    public record Response(Instant checkedAt, Instant refreshAvailableAt, Instant manualRefreshAvailableAt, List<Project> projects) {}
+    public record Response(Instant checkedAt, Instant refreshAvailableAt, List<Project> projects) {}
     public record Project(String id, String name, List<Component> components) {}
     public record Component(String id, String label, String fullName, Pipeline pipeline, Deployment deployment) {}
     public record Pipeline(
