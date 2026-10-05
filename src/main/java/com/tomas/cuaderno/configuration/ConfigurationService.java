@@ -1,8 +1,10 @@
 package com.tomas.cuaderno.configuration;
 
 import com.tomas.cuaderno.common.errors.*;
+import java.text.Normalizer;
 import java.time.Instant;
 import java.util.*;
+import java.util.function.Predicate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,9 +33,12 @@ public class ConfigurationService {
     }
     @Transactional public ConfigurationDtos.CategoryResponse createCategory(UUID owner, ConfigurationDtos.CategoryRequest request) {
         String canonicalProject = projectCode(owner, request.projectCode());
-        String code = request.code().trim();
+        String label = request.label().trim();
+        String code = request.code() == null || request.code().isBlank()
+                ? generatedCode(label, candidate -> repository.existsByOwnerIdAndKindAndProjectCodeIgnoreCaseAndCodeIgnoreCaseAndDeletedAtIsNull(owner, ConfigKind.CATEGORY, canonicalProject, candidate))
+                : request.code().trim();
         if (repository.existsByOwnerIdAndKindAndProjectCodeIgnoreCaseAndCodeIgnoreCaseAndDeletedAtIsNull(owner, ConfigKind.CATEGORY, canonicalProject, code)) throw new BadRequestException("Ya existe una categoría con ese código en este proyecto");
-        ConfigItem item = new ConfigItem(); item.setOwnerId(owner); item.setKind(ConfigKind.CATEGORY); item.setCode(code); item.setLabel(request.label().trim()); item.setProjectCode(canonicalProject); item.setSortOrder(request.sortOrder()); item.setActive(request.active());
+        ConfigItem item = new ConfigItem(); item.setOwnerId(owner); item.setKind(ConfigKind.CATEGORY); item.setCode(code); item.setLabel(label); item.setProjectCode(canonicalProject); item.setSortOrder(request.sortOrder()); item.setActive(request.active());
         return categoryResponse(repository.save(item));
     }
     @Transactional public ConfigurationDtos.CategoryResponse patchCategory(UUID owner, UUID id, ConfigurationDtos.PatchRequest request) {
@@ -77,12 +82,28 @@ public class ConfigurationService {
     }
     public ConfigurationDtos.ConfigOptionResponse option(UUID owner, ConfigKind kind, String code) { return response(repository.findByOwnerIdAndKindAndCodeIgnoreCaseAndDeletedAtIsNull(owner, kind, code).orElseThrow(() -> new NotFoundException("Configuration option not found"))); }
     private ConfigurationDtos.ConfigOptionResponse create(UUID owner, ConfigKind kind, String code, String label, String emoji, int sortOrder, boolean active, FinanceItemType financeType) {
+        label = label.trim();
+        code = code == null || code.isBlank()
+                ? generatedCode(label, candidate -> repository.existsByOwnerIdAndKindAndCodeIgnoreCaseAndDeletedAtIsNull(owner, kind, candidate))
+                : code.trim();
         if (repository.existsByOwnerIdAndKindAndCodeIgnoreCaseAndDeletedAtIsNull(owner, kind, code)) throw new BadRequestException("Configuration code already exists");
-        ConfigItem item = new ConfigItem(); item.setOwnerId(owner); item.setKind(kind); item.setCode(code.trim()); item.setLabel(label.trim()); item.setEmoji(emoji); item.setSortOrder(sortOrder); item.setActive(active); item.setFinanceType(financeType); return response(repository.save(item));
+        ConfigItem item = new ConfigItem(); item.setOwnerId(owner); item.setKind(kind); item.setCode(code); item.setLabel(label); item.setEmoji(emoji); item.setSortOrder(sortOrder); item.setActive(active); item.setFinanceType(financeType); return response(repository.save(item));
     }
     private ConfigItem find(UUID owner, ConfigKind kind, String code) { return repository.findByOwnerIdAndKindAndCodeIgnoreCaseAndDeletedAtIsNull(owner, kind, code).orElseThrow(() -> new NotFoundException("Configuration option not found")); }
     private void requireCanonicalDayStatus(String code) { if (code == null || !DAY_STATUS_CODES.contains(code.trim().toLowerCase())) throw new BadRequestException("The day semaphore only supports green, yellow and red"); }
     private FinanceItemType financeType(ConfigKind kind, FinanceItemType type) { if (kind == ConfigKind.FINANCE_ITEM && type == null) throw new BadRequestException("financeType is required"); if (kind != ConfigKind.FINANCE_ITEM && type != null) throw new BadRequestException("financeType is only valid for finance items"); return type; }
+    private String generatedCode(String label, Predicate<String> exists) {
+        String base = Normalizer.normalize(label, Normalizer.Form.NFD).replaceAll("\\p{M}+", "").toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "_").replaceAll("^_+|_+$", "");
+        if (base.isEmpty()) base = "opcion";
+        if (base.length() > 80) base = base.substring(0, 80).replaceAll("_+$", "");
+        String candidate = base;
+        int suffix = 2;
+        while (exists.test(candidate)) {
+            String tail = "_" + suffix++;
+            candidate = base.substring(0, Math.min(base.length(), 80 - tail.length())).replaceAll("_+$", "") + tail;
+        }
+        return candidate;
+    }
     private boolean isTransfer(ConfigItem item) { return "transferencia".equalsIgnoreCase(item.getCode()); }
     private ConfigurationDtos.ConfigOptionResponse response(ConfigItem item) { return new ConfigurationDtos.ConfigOptionResponse(item.getCode(), item.getLabel(), item.getEmoji(), item.getSortOrder(), item.isActive(), item.getFinanceType()); }
     private ConfigurationDtos.CategoryResponse categoryResponse(ConfigItem item) { return new ConfigurationDtos.CategoryResponse(item.getId(), item.getCode(), item.getLabel(), item.getSortOrder(), item.isActive(), item.getProjectCode()); }
