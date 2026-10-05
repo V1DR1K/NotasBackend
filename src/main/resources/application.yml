@@ -46,3 +46,11 @@ cuaderno:
     api-key: ${GEMINI_API_KEY:}
     model: ${GEMINI_MODEL:gemini-flash-lite-latest}
     timeout-ms: ${GEMINI_TIMEOUT_MS:10000}
+repositories:
+  github:
+    api-base-url: ${REPOSITORY_GITHUB_API_BASE_URL:https://api.github.com}
+    api-token: ${REPOSITORY_GITHUB_TOKEN:}
+    timeout-ms: ${REPOSITORY_GITHUB_TIMEOUT_MS:5000}
+    cache-ttl: ${REPOSITORY_GITHUB_CACHE_TTL:10m}
+  images:
+    status-file: ${REPOSITORY_IMAGE_STATUS_FILE:/var/lib/cuaderno/repository-images.json}
