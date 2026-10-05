@@ -9,6 +9,7 @@ import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AuthenticationServiceException;
 import org.springframework.dao.DataIntegrityViolationException;
 import java.net.URI;
@@ -31,6 +32,8 @@ public class GlobalExceptionHandler {
     }
     @ExceptionHandler(ForbiddenException.class)
     ProblemDetail forbidden(ForbiddenException ex, HttpServletRequest request) { return problem(HttpStatus.FORBIDDEN, ex, request); }
+    @ExceptionHandler(AccessDeniedException.class)
+    ProblemDetail accessDenied(AccessDeniedException ex, HttpServletRequest request) { return problem(HttpStatus.FORBIDDEN, "You do not have permission to perform this action", request); }
     @ExceptionHandler(AuthenticationServiceException.class)
     ProblemDetail authUnavailable(AuthenticationServiceException ex, HttpServletRequest request) { return problem(HttpStatus.SERVICE_UNAVAILABLE, "Authentication service is temporarily unavailable", request); }
     @ExceptionHandler(AuthenticationException.class)

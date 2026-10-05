@@ -54,3 +54,26 @@ repositories:
     cache-ttl: ${REPOSITORY_GITHUB_CACHE_TTL:10m}
   images:
     status-file: ${REPOSITORY_IMAGE_STATUS_FILE:/var/lib/cuaderno/repository-images.json}
+  databases:
+    targets:
+      scalegrams:
+        host: ${REPOSITORY_DB_SCALEGRAMS_HOST:scalegrams-repository-db}
+        port: 5432
+        database: ${REPOSITORY_DB_SCALEGRAMS_DATABASE:kcal_db}
+        username: ${REPOSITORY_DB_SCALEGRAMS_USERNAME:}
+        password: ${REPOSITORY_DB_SCALEGRAMS_PASSWORD:}
+      whatplan:
+        host: ${REPOSITORY_DB_WHATPLAN_HOST:whatplan-repository-db}
+        port: 5432
+        database: ${REPOSITORY_DB_WHATPLAN_DATABASE:wherefood}
+        username: ${REPOSITORY_DB_WHATPLAN_USERNAME:}
+        password: ${REPOSITORY_DB_WHATPLAN_PASSWORD:}
+      notes:
+        host: ${REPOSITORY_DB_NOTES_HOST:notes-repository-db}
+        port: 5432
+        database: ${REPOSITORY_DB_NOTES_DATABASE:notes}
+        username: ${REPOSITORY_DB_NOTES_USERNAME:}
+        password: ${REPOSITORY_DB_NOTES_PASSWORD:}
+  backup-control:
+    base-url: ${REPOSITORY_BACKUP_CONTROL_URL:http://172.30.104.1:9810}
+    token: ${REPOSITORY_BACKUP_TOKEN:}
