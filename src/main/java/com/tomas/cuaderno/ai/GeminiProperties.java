@@ -7,6 +7,7 @@ public class GeminiProperties {
     private String apiKey = "";
     private String model = "gemini-flash-lite-latest";
     private int timeoutMs = 10000;
+    private int markdownTimeoutMs = 30000;
 
     public String getApiKey() { return apiKey; }
     public void setApiKey(String value) { apiKey = value; }
@@ -14,4 +15,6 @@ public class GeminiProperties {
     public void setModel(String value) { model = value; }
     public int getTimeoutMs() { return timeoutMs; }
     public void setTimeoutMs(int value) { timeoutMs = value; }
+    public int getMarkdownTimeoutMs() { return markdownTimeoutMs; }
+    public void setMarkdownTimeoutMs(int value) { markdownTimeoutMs = value; }
 }
