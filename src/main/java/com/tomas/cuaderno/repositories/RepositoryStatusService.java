@@ -11,6 +11,7 @@ import com.tomas.cuaderno.repositories.RepositoryStatusDtos.Project;
 import com.tomas.cuaderno.repositories.RepositoryStatusDtos.Response;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -26,6 +27,7 @@ import org.springframework.web.client.RestClientException;
 @Service
 public class RepositoryStatusService {
     private static final Logger log = LoggerFactory.getLogger(RepositoryStatusService.class);
+    private static final Duration MANUAL_REFRESH_COOLDOWN = Duration.ofSeconds(30);
     private static final List<RepositorySource> SOURCES = List.of(
             new RepositorySource("scalegrams-frontend", "scalegrams", "ScaleGrams", "frontend", "Frontend", "V1DR1K", "kcalFrontend"),
             new RepositorySource("scalegrams-backend", "scalegrams", "ScaleGrams", "backend", "Backend", "V1DR1K", "kcalBackend"),
@@ -50,13 +52,24 @@ public class RepositoryStatusService {
     }
 
     public Response getStatus() {
+        return status(false);
+    }
+
+    public Response refreshStatus() {
+        return status(true);
+    }
+
+    private Response status(boolean forceRefresh) {
         PipelineCache current = cache;
         Instant now = Instant.now();
-        if (current == null || !now.isBefore(current.checkedAt().plus(properties.getGithub().getCacheTtl()))) {
+        Duration freshness = forceRefresh
+                ? MANUAL_REFRESH_COOLDOWN
+                : properties.getGithub().getCacheTtl();
+        if (current == null || !now.isBefore(current.checkedAt().plus(freshness))) {
             synchronized (cacheLock) {
                 current = cache;
                 now = Instant.now();
-                if (current == null || !now.isBefore(current.checkedAt().plus(properties.getGithub().getCacheTtl()))) {
+                if (current == null || !now.isBefore(current.checkedAt().plus(freshness))) {
                     current = fetchPipelines(current);
                     cache = current;
                 }
