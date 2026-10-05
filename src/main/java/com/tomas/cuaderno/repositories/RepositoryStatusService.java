@@ -27,7 +27,7 @@ import org.springframework.web.client.RestClientException;
 @Service
 public class RepositoryStatusService {
     private static final Logger log = LoggerFactory.getLogger(RepositoryStatusService.class);
-    private static final Duration MANUAL_REFRESH_COOLDOWN = Duration.ofSeconds(30);
+    private static final Duration MANUAL_REFRESH_COOLDOWN = Duration.ofMinutes(15);
     private static final List<RepositorySource> SOURCES = List.of(
             new RepositorySource("scalegrams-frontend", "scalegrams", "ScaleGrams", "frontend", "Frontend", "V1DR1K", "kcalFrontend"),
             new RepositorySource("scalegrams-backend", "scalegrams", "ScaleGrams", "backend", "Backend", "V1DR1K", "kcalBackend"),
@@ -41,6 +41,7 @@ public class RepositoryStatusService {
     private final ObjectMapper objectMapper;
     private final Object cacheLock = new Object();
     private volatile PipelineCache cache;
+    private volatile Instant manualRefreshAvailableAt;
 
     public RepositoryStatusService(
             GithubActionsClient github,
@@ -52,30 +53,37 @@ public class RepositoryStatusService {
     }
 
     public Response getStatus() {
-        return status(false);
-    }
-
-    public Response refreshStatus() {
-        return status(true);
-    }
-
-    private Response status(boolean forceRefresh) {
         PipelineCache current = cache;
         Instant now = Instant.now();
-        Duration freshness = forceRefresh
-                ? MANUAL_REFRESH_COOLDOWN
-                : properties.getGithub().getCacheTtl();
-        if (current == null || !now.isBefore(current.checkedAt().plus(freshness))) {
+        if (current == null || !now.isBefore(current.checkedAt().plus(properties.getGithub().getCacheTtl()))) {
             synchronized (cacheLock) {
                 current = cache;
                 now = Instant.now();
-                if (current == null || !now.isBefore(current.checkedAt().plus(freshness))) {
+                if (current == null || !now.isBefore(current.checkedAt().plus(properties.getGithub().getCacheTtl()))) {
                     current = fetchPipelines(current);
                     cache = current;
                 }
             }
         }
+        return response(current);
+    }
 
+    public Response refreshStatus() {
+        PipelineCache current;
+        synchronized (cacheLock) {
+            Instant now = Instant.now();
+            if (cache == null
+                    || manualRefreshAvailableAt == null
+                    || !now.isBefore(manualRefreshAvailableAt)) {
+                cache = fetchPipelines(cache);
+                manualRefreshAvailableAt = cache.checkedAt().plus(MANUAL_REFRESH_COOLDOWN);
+            }
+            current = cache;
+        }
+        return response(current);
+    }
+
+    private Response response(PipelineCache current) {
         JsonNode imageStatus = readImageStatus();
         List<Project> projects = List.of(
                 project("scalegrams", "ScaleGrams", current.pipelines(), imageStatus),
@@ -84,6 +92,7 @@ public class RepositoryStatusService {
         return new Response(
                 current.checkedAt(),
                 current.checkedAt().plus(properties.getGithub().getCacheTtl()),
+                manualRefreshAvailableAt,
                 projects);
     }
 
