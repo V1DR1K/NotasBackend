@@ -41,8 +41,7 @@ public class GeminiEmbeddingService {
                     "model", "models/" + properties.getEmbeddingModel(),
                     "content", content,
                     "taskType", taskType,
-                    "outputDimensionality", DIMENSIONS,
-                    "autoTruncate", true));
+                    "outputDimensionality", DIMENSIONS));
         }
 
         String url = "https://generativelanguage.googleapis.com/v1beta/models/" + properties.getEmbeddingModel() + ":batchEmbedContents";
