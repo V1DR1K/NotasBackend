@@ -33,7 +33,7 @@ import org.testcontainers.junit.jupiter.*;
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 @Testcontainers
 class FinancePersistenceTest {
-    @Container static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:17-alpine").withStartupTimeout(Duration.ofMinutes(3));
+    @Container static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("pgvector/pgvector:pg17").withStartupTimeout(Duration.ofMinutes(3));
     @DynamicPropertySource static void database(DynamicPropertyRegistry properties) {
         properties.add("spring.datasource.url", postgres::getJdbcUrl);
         properties.add("spring.datasource.username", postgres::getUsername);
@@ -70,6 +70,33 @@ class FinancePersistenceTest {
         assertBalance("mercadopago", "70000");
         assertBalance("inversiones_pesos", "50000");
         assertThat(jdbc.queryForObject("select count(*) from finance_movements where owner_id=? and balance_applied=true", Long.class, owner)).isEqualTo(1);
+    }
+
+    @Test void semanticSearchMigrationCreatesVectorIndexAndTracksRecordChanges() {
+        assertThat(jdbc.queryForObject("select count(*) from pg_extension where extname = 'vector'", Long.class)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select count(*) from pg_indexes where indexname = 'ix_semantic_search_documents_embedding' and indexdef ilike '%hnsw%'", Long.class)).isEqualTo(1);
+
+        UUID noteId = UUID.randomUUID();
+        jdbc.update("""
+                insert into notes(id, owner_id, title, body, category_code, date, project_code)
+                values (?, ?, ?, ?, ?, ?, ?)
+                """, noteId, owner, "Cocina", "Ideas para una cena liviana", "personal", date, "personal");
+        assertThat(jdbc.queryForObject("""
+                select content from semantic_search_queue
+                where owner_id = ? and source_type = 'notes' and source_id = ?
+                """, String.class, owner, noteId)).contains("cena liviana");
+
+        jdbc.update("update notes set body = ?, updated_at = now() where id = ?", "Planificar una caminata", noteId);
+        assertThat(jdbc.queryForObject("""
+                select content from semantic_search_queue
+                where owner_id = ? and source_type = 'notes' and source_id = ?
+                """, String.class, owner, noteId)).contains("caminata");
+
+        jdbc.update("update notes set deleted_at = now() where id = ?", noteId);
+        assertThat(jdbc.queryForObject("""
+                select count(*) from semantic_search_queue
+                where owner_id = ? and source_type = 'notes' and source_id = ?
+                """, Long.class, owner, noteId)).isZero();
     }
 
     @ParameterizedTest @ValueSource(strings = {"inversiones_pesos", "crypto"})
