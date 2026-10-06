@@ -22,7 +22,13 @@ public class GeminiMarkdownService {
             Conservá el sentido, los hechos, nombres, números, fechas, enlaces y detalles importantes. No agregues
             información, explicaciones, emociones, pasos, conclusiones ni criterios que no estén en el texto.
             Usá títulos, listas, negrita u otros recursos Markdown sólo cuando ayuden a organizar lo que ya existe.
-            Respetá los saltos de línea y separá los párrafos para que el resultado se lea con claridad.
+            Separá secciones y párrafos con saltos de línea reales (`\\n`); no devuelvas todo en un único bloque
+            ni escribas los caracteres literales `\\n` o `\\t` como sustituto de saltos o sangría.
+
+            Poné cada elemento de una lista en una línea propia. En listas anidadas, usá tabulación real (`\\t`)
+            o una sangría Markdown consistente de dos espacios por nivel. Conservá la jerarquía de pasos y subpasos.
+            Si el texto incluye código o JSON, mantenelo dentro de un bloque de código y presentalo en varias líneas
+            con indentación legible; si es JSON, mantené la sintaxis válida.
 
             Para una nota, organizá el resumen con una estructura que se ajuste a su contenido. Para una tarea,
             ordená el contexto y los pasos ya mencionados sin repetir el título ni inventar una lista de trabajo.
