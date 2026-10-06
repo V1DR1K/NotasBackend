@@ -101,6 +101,6 @@ public class AuthController {
     }
 
     private ResponseCookie cookie(String name, String value, Duration maxAge) {
-        return ResponseCookie.from(name, value).httpOnly(true).secure(true).sameSite("Strict").path("/api").maxAge(maxAge).build();
+        return ResponseCookie.from(name, value).httpOnly(true).secure(properties.isSecureCookie()).sameSite("Strict").path("/api").maxAge(maxAge).build();
     }
 }

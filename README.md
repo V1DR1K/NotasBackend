@@ -11,7 +11,7 @@ curl -H 'Content-Type: application/json' \
   http://localhost:8080/api/auth/login
 ```
 
-El login delega en Auth central y devuelve el access JWT y refresh token como JSON. El frontend mantiene la sesión en `localStorage`, envía `Authorization: Bearer` y rota el refresh token automáticamente cuando el access token vence. La API es stateless y no utiliza cookies ni CSRF por decisión explícita del MVP. Para producción se recomienda definir `AUTH_JWT_AUDIENCE` y activar `AUTH_JWT_REQUIRE_AUDIENCE=true`.
+El login delega en Auth central y devuelve los datos del usuario; los tokens viajan en cookies `HttpOnly`, `SameSite=Strict` y con alcance `/api`. El frontend las envía con credenciales y no guarda tokens en `localStorage`. La API es stateless y no expone un endpoint CSRF; el atributo `SameSite=Strict` limita el envío de cookies desde otros sitios. `JWT_SECURE_COOKIE` activa el atributo `Secure` y vale `true` por defecto; el `docker compose` local lo desactiva para permitir HTTP. Para producción se recomienda definir `AUTH_JWT_AUDIENCE` y activar `AUTH_JWT_REQUIRE_AUDIENCE=true`.
 
 Health: `GET /api/actuator/health`.
 
@@ -21,7 +21,7 @@ Todos los endpoints de negocio usan `/api`, sin versionado `/api/v1`.
 
 Los listados paginados responden exactamente `content`, `page`, `size`, `totalElements`, `totalPages`, `first` y `last`.
 
-Auth: `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`, `GET /api/auth/me`, `POST /api/auth/change-password`, `GET /api/auth/csrf`.
+Auth: `POST /api/auth/login`, `POST /api/auth/refresh`, `POST /api/auth/logout`, `GET /api/auth/me` y `PUT /api/auth/change-password`. Login y refresh renuevan las cookies de sesión; logout las elimina.
 
 Configuracion: `GET/POST /api/config/day-statuses`, `PATCH/DELETE /api/config/day-statuses/{code}`; los mismos verbos y forma para `day-feelings`, `finance-items` y `note-categories`. Las modificaciones requieren ADMIN. La respuesta comun es `ConfigOptionResponse(code,label,emoji,sortOrder,active,financeType)` y PATCH es parcial, sin posibilidad de cambiar `code`. Las clasificaciones financieras requieren `financeType`: `INCOME`, `EXPENSE` o `TRANSFER`. Las opciones activas alimentan los formularios y filtros; Transferencia queda reservada para cuentas de inversión.
 
