@@ -1,16 +1,10 @@
 package com.tomas.cuaderno.search;
 
-import com.tomas.cuaderno.calendar.CalendarEvent;
 import com.tomas.cuaderno.calendar.CalendarEventRepository;
-import com.tomas.cuaderno.day.DayEntry;
 import com.tomas.cuaderno.day.DayEntryRepository;
-import com.tomas.cuaderno.files.FileMetadata;
 import com.tomas.cuaderno.files.FileMetadataRepository;
-import com.tomas.cuaderno.finance.FinanceMovement;
 import com.tomas.cuaderno.finance.FinanceMovementRepository;
-import com.tomas.cuaderno.notes.Note;
 import com.tomas.cuaderno.notes.NoteRepository;
-import com.tomas.cuaderno.task.Task;
 import com.tomas.cuaderno.task.TaskRepository;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -84,19 +78,19 @@ public class SearchService {
         var page = PageRequest.of(0, MAX_RESULTS_PER_SECTION, Sort.by(Sort.Direction.DESC, "date"));
 
         notes.findAll(textSpec(owner, query, "title", "body", "categoryCode", "projectCode"), page)
-                .forEach(note -> results.add(noteResult(note)));
+                .forEach(note -> results.add(SearchResultMapper.from(note)));
         days.findAll(textSpec(owner, query, "feeling", "description", "statusCode"), page)
-                .forEach(day -> results.add(dayResult(day)));
+                .forEach(day -> results.add(SearchResultMapper.from(day)));
         movements.findAll(textSpec(owner, query, "itemCode", "note", "accountCode"), page)
-                .forEach(movement -> results.add(movementResult(movement)));
+                .forEach(movement -> results.add(SearchResultMapper.from(movement)));
         files.findAll(textSpec(owner, query, "name", "description", "extension", "mimeType", "projectCode"),
                         PageRequest.of(0, MAX_RESULTS_PER_SECTION, Sort.by(Sort.Direction.DESC, "createdAt")))
-                .forEach(file -> results.add(fileResult(file)));
+                .forEach(file -> results.add(SearchResultMapper.from(file)));
         tasks.findAll(textSpec(owner, query, "title", "detail", "categoryCode", "projectCode"),
                         PageRequest.of(0, MAX_RESULTS_PER_SECTION, Sort.by(Sort.Direction.DESC, "updatedAt")))
-                .forEach(task -> results.add(taskResult(task)));
+                .forEach(task -> results.add(SearchResultMapper.from(task)));
         events.findAll(textSpec(owner, query, "description", "categoryCode", "projectCode"), page)
-                .forEach(event -> results.add(eventResult(event)));
+                .forEach(event -> results.add(SearchResultMapper.from(event)));
         return results;
     }
 
@@ -122,7 +116,7 @@ public class SearchService {
                 ORDER BY similarity DESC
                 LIMIT 60
                 """,
-                (row, rowNum) -> new SearchDtos.Result(
+                (row, rowNum) -> SearchResultMapper.of(
                         row.getString("source_type"),
                         row.getObject("source_id", UUID.class),
                         row.getString("title"),
@@ -166,13 +160,6 @@ public class SearchService {
     }
 
     private String key(SearchDtos.Result result) { return result.section() + ":" + result.id(); }
-    private SearchDtos.Result noteResult(Note note) { return new SearchDtos.Result("notes", note.getId(), note.getTitle(), note.getBody(), note.getDate()); }
-    private SearchDtos.Result dayResult(DayEntry day) { return new SearchDtos.Result("day", day.getId(), day.getFeeling(), day.getDescription(), day.getDate()); }
-    private SearchDtos.Result movementResult(FinanceMovement movement) { return new SearchDtos.Result("finances", movement.getId(), movement.getItemCode(), movement.getNote(), movement.getDate()); }
-    private SearchDtos.Result fileResult(FileMetadata file) { return new SearchDtos.Result("files", file.getId(), file.getName(), file.getDescription(), file.getUploadedAt().atZone(java.time.ZoneOffset.UTC).toLocalDate()); }
-    private SearchDtos.Result taskResult(Task task) { return new SearchDtos.Result("tasks", task.getId(), task.getTitle(), task.getDetail(), task.getDueDate() == null ? task.getCreatedAt().atZone(java.time.ZoneOffset.UTC).toLocalDate() : task.getDueDate()); }
-    private SearchDtos.Result eventResult(CalendarEvent event) { return new SearchDtos.Result("calendar", event.getId(), event.getDescription(), event.getCategoryCode(), event.getDate()); }
-
     private static final class RankedResult {
         private final SearchDtos.Result result;
         private double score;
