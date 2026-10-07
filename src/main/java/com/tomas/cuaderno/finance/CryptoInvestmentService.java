@@ -102,7 +102,9 @@ public class CryptoInvestmentService {
         BigDecimal legacyRate = account.getBalanceUsd() == null ? rates.usd(owner).average() : BigDecimal.ONE;
         BigDecimal amountUsd = usd(request.amountUsd());
         BigDecimal unitPriceUsd = price(request.unitPriceUsd());
-        BigDecimal units = amountUsd.divide(unitPriceUsd, QUANTITY_SCALE, ROUNDING);
+        BigDecimal units = request.quantity() == null
+                ? amountUsd.divide(unitPriceUsd, QUANTITY_SCALE, ROUNDING)
+                : quantity(request.quantity());
         if (units.signum() <= 0 || integerDigits(units) > 10) throw new BadRequestException("Purchase amount and price produce an unsupported crypto quantity");
         BigDecimal openArs = openBasisArs(owner), openUsd = openBasisUsd(owner);
         CryptoWallet.initialize(account, openArs, openUsd, legacyRate);
@@ -149,16 +151,64 @@ public class CryptoInvestmentService {
         FinanceAccount account = cryptoAccount(owner, true);
         CryptoInvestment investment = investments.findActiveForUpdate(id, owner)
                 .orElseThrow(() -> new NotFoundException("Crypto investment not found"));
+        return sellLocked(account, owner, investment, request.date(), request.quantity(), request.proceedsUsd(), request.note());
+    }
+
+    @Transactional
+    public List<CryptoDtos.SaleResponse> sellPosition(UUID owner, String assetCode, CryptoDtos.SellPositionRequest request) {
+        CryptoAsset asset = CryptoAsset.parse(assetCode);
+        FinanceAccount account = cryptoAccount(owner, true);
+        List<CryptoInvestment> rows = investments.findActiveForUpdate(owner, asset);
+        if (rows.isEmpty()) throw new BadRequestException("No hay posiciones abiertas para vender de esta moneda.");
+
+        Map<UUID, List<CryptoSale>> salesByInvestment = salesFor(rows);
+        Map<CryptoInvestment, BigDecimal> quantities = new java.util.LinkedHashMap<>();
+        BigDecimal totalQuantity = BigDecimal.ZERO;
+        for (CryptoInvestment investment : rows) {
+            List<CryptoSale> itemSales = salesByInvestment.getOrDefault(investment.getId(), List.of());
+            if (investment.getQuantity() == null || investment.getUnitPriceUsd() == null) {
+                if (remainingBasisUsd(investment, itemSales).signum() > 0) {
+                    throw new BadRequestException("Completá el precio de compra pendiente antes de vender toda la posición.");
+                }
+                continue;
+            }
+            BigDecimal remaining = remainingQuantity(investment, itemSales);
+            if (remaining.signum() > 0) {
+                if (request.date().isBefore(investment.getDate())) throw new BadRequestException("La venta no puede ser anterior a una compra de esta posición.");
+                quantities.put(investment, remaining);
+                totalQuantity = totalQuantity.add(remaining);
+            }
+        }
+        if (totalQuantity.signum() <= 0) throw new BadRequestException("No hay unidades disponibles para vender de esta moneda.");
+
+        BigDecimal totalProceeds = usd(request.proceedsUsd());
+        BigDecimal allocatedProceeds = BigDecimal.ZERO.setScale(USD_SCALE);
+        List<CryptoDtos.SaleResponse> result = new ArrayList<>();
+        int index = 0;
+        for (var entry : quantities.entrySet()) {
+            index++;
+            BigDecimal proceeds = index == quantities.size()
+                    ? totalProceeds.subtract(allocatedProceeds)
+                    : usd(totalProceeds.multiply(entry.getValue()).divide(totalQuantity, 18, ROUNDING));
+            if (proceeds.signum() <= 0) throw new BadRequestException("El total de la venta es demasiado pequeño para distribuirlo entre todos los lotes.");
+            result.add(sellLocked(account, owner, entry.getKey(), request.date(), entry.getValue(), proceeds, request.note()));
+            allocatedProceeds = allocatedProceeds.add(proceeds);
+        }
+        return result;
+    }
+
+    private CryptoDtos.SaleResponse sellLocked(FinanceAccount account, UUID owner, CryptoInvestment investment,
+            LocalDate date, BigDecimal requestedQuantity, BigDecimal requestedProceeds, String note) {
         if (investment.getQuantity() == null || investment.getUnitPriceUsd() == null) {
-            throw new BadRequestException("Complete the purchase unit price before selling this lot");
+            throw new BadRequestException("Completá el precio de compra antes de vender este lote.");
         }
-        List<CryptoSale> activeSales = sales.findByInvestmentIdAndDeletedAtIsNull(id);
+        List<CryptoSale> activeSales = sales.findByInvestmentIdAndDeletedAtIsNull(investment.getId());
         BigDecimal remainingQuantity = remainingQuantity(investment, activeSales);
-        BigDecimal soldQuantity = quantity(request.quantity());
+        BigDecimal soldQuantity = quantity(requestedQuantity);
         if (soldQuantity.signum() <= 0 || soldQuantity.compareTo(remainingQuantity) > 0) {
-            throw new BadRequestException("Sale quantity exceeds the remaining quantity in this purchase");
+            throw new BadRequestException("La cantidad supera las unidades disponibles en esta compra.");
         }
-        BigDecimal proceedsUsd = usd(request.proceedsUsd());
+        BigDecimal proceedsUsd = usd(requestedProceeds);
         BigDecimal remainingUsd = remainingBasisUsd(investment, activeSales);
         BigDecimal remainingArs = remainingBasisArs(investment, activeSales);
         boolean closesLot = soldQuantity.compareTo(remainingQuantity) == 0;
@@ -168,7 +218,7 @@ public class CryptoInvestmentService {
                 : money(remainingArs.multiply(soldQuantity).divide(remainingQuantity, 18, ROUNDING));
         if (costBasisUsd.signum() <= 0) throw new BadRequestException("Sale quantity is below the supported precision");
 
-        if (request.date().isBefore(investment.getDate())) throw new BadRequestException("La venta no puede ser anterior a la compra.");
+        if (date.isBefore(investment.getDate())) throw new BadRequestException("La venta no puede ser anterior a la compra.");
         BigDecimal bookRate = investment.getExchangeRateSnapshot();
         CryptoWallet.initialize(account, openBasisArs(owner), openBasisUsd(owner), bookRate);
         BigDecimal nextUsd = usd(account.getBalanceUsd().add(proceedsUsd).subtract(costBasisUsd));
@@ -182,15 +232,15 @@ public class CryptoInvestmentService {
 
         CryptoSale sale = new CryptoSale();
         sale.setOwnerId(owner);
-        sale.setInvestmentId(id);
-        sale.setDate(request.date());
+        sale.setInvestmentId(investment.getId());
+        sale.setDate(date);
         sale.setQuantity(soldQuantity);
         sale.setProceedsUsd(proceedsUsd);
         sale.setUnitPriceUsd(saleUnitPrice);
         sale.setCostBasisUsd(costBasisUsd);
         sale.setCostBasisArs(costBasisArs);
         sale.setExchangeRateSnapshot(bookRate);
-        sale.setNote(request.note());
+        sale.setNote(note);
         return saleResponse(sales.save(sale));
     }
 

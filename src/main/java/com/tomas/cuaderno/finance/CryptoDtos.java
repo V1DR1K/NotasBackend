@@ -19,6 +19,7 @@ public final class CryptoDtos {
             @NotBlank @Size(max = 20) String assetCode,
             @NotNull @DecimalMin(value = "0.00000001") @Digits(integer = 11, fraction = 8) BigDecimal amountUsd,
             @NotNull @DecimalMin(value = "0.000000000001") @Digits(integer = 16, fraction = 12) BigDecimal unitPriceUsd,
+            @DecimalMin(value = "0.000000000000000001") @Digits(integer = 10, fraction = 18) BigDecimal quantity,
             @Size(max = 1000) String note) {}
 
     public record LegacyPriceRequest(@NotNull @DecimalMin(value = "0.000000000001") @Digits(integer = 16, fraction = 12) BigDecimal unitPriceUsd) {}
@@ -26,6 +27,11 @@ public final class CryptoDtos {
     public record SellRequest(
             @NotNull LocalDate date,
             @NotNull @DecimalMin(value = "0.000000000000000001") @Digits(integer = 10, fraction = 18) BigDecimal quantity,
+            @NotNull @DecimalMin(value = "0.00000001") @Digits(integer = 11, fraction = 8) BigDecimal proceedsUsd,
+            @Size(max = 1000) String note) {}
+
+    public record SellPositionRequest(
+            @NotNull LocalDate date,
             @NotNull @DecimalMin(value = "0.00000001") @Digits(integer = 11, fraction = 8) BigDecimal proceedsUsd,
             @Size(max = 1000) String note) {}
 
