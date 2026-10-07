@@ -33,7 +33,7 @@ class CryptoInvestmentServiceTest {
         when(investments.save(any(CryptoInvestment.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         CryptoDtos.InvestmentResponse response = service().create(owner,
-                new CryptoDtos.CreateRequest(LocalDate.of(2026, 9, 3), "btc/usdt", new BigDecimal("500"), new BigDecimal("50"), null));
+                new CryptoDtos.CreateRequest(LocalDate.of(2026, 9, 3), "btc/usdt", new BigDecimal("500"), new BigDecimal("50"), null, null));
 
         assertThat(response.assetCode()).isEqualTo("BTCUSDT");
         assertThat(response.amount().usd()).isEqualByComparingTo("500.00000000");
@@ -48,7 +48,7 @@ class CryptoInvestmentServiceTest {
         when(investments.findByOwnerIdAndDeletedAtIsNullOrderByDateDescCreatedAtDesc(owner)).thenReturn(List.of());
 
         assertThatThrownBy(() -> service().create(owner,
-                new CryptoDtos.CreateRequest(LocalDate.now(), "ETHUSDT", new BigDecimal("2"), new BigDecimal("10"), null)))
+                new CryptoDtos.CreateRequest(LocalDate.now(), "ETHUSDT", new BigDecimal("2"), new BigDecimal("10"), null, null)))
                 .isInstanceOf(BadRequestException.class)
                 .hasMessage("Insufficient available balance in crypto account");
     }
