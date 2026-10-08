@@ -14,7 +14,7 @@ public final class TaskDtos {
 
     public record CreateRequest(
             @NotBlank @Size(max = 180) String title,
-            @Size(max = 10000) String detail,
+            String detail,
             @NotBlank @Size(max = 80) String categoryCode,
             TaskStatus status,
             LocalDate dueDate,
@@ -22,7 +22,7 @@ public final class TaskDtos {
 
     public record PatchRequest(
             @Size(max = 180) String title,
-            @Size(max = 10000) String detail,
+            String detail,
             @Size(max = 80) String categoryCode,
             TaskStatus status,
             JsonNode dueDate,
