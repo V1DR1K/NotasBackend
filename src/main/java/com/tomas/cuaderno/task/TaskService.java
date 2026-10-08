@@ -39,8 +39,12 @@ public class TaskService {
             spec = spec.and((root, query, cb) -> cb.equal(cb.lower(root.get("categoryCode")), normalized));
         }
         if (projectCode != null && !projectCode.isBlank()) spec = spec.and((root, query, cb) -> cb.equal(cb.lower(root.get("projectCode")), projectCode.trim().toLowerCase(Locale.ROOT)));
-        if (from != null) spec = spec.and((root, query, cb) -> cb.greaterThanOrEqualTo(root.get("dueDate"), from));
-        if (to != null) spec = spec.and((root, query, cb) -> cb.lessThanOrEqualTo(root.get("dueDate"), to));
+        if (from != null) spec = spec.and((root, query, cb) -> cb.or(
+                cb.isNull(root.get("dueDate")),
+                cb.greaterThanOrEqualTo(root.get("dueDate"), from)));
+        if (to != null) spec = spec.and((root, query, cb) -> cb.or(
+                cb.isNull(root.get("dueDate")),
+                cb.lessThanOrEqualTo(root.get("dueDate"), to)));
         if (completedAfter != null) spec = spec.and((root, query, cb) -> cb.greaterThanOrEqualTo(root.get("completedAt"), completedAfter));
         if (completedBefore != null) spec = spec.and((root, query, cb) -> cb.lessThan(root.get("completedAt"), completedBefore));
         Map<String, ConfigurationDtos.ConfigOptionResponse> categories = configuration.categoriesIndexIncludingDeleted(owner);

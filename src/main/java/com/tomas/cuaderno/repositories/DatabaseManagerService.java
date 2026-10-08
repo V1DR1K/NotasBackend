@@ -219,8 +219,12 @@ public class DatabaseManagerService {
         config.setUsername(target.getUsername()); config.setPassword(target.getPassword());
         config.setMaximumPoolSize(1); config.setMinimumIdle(0); config.setConnectionTimeout(5000); config.setPoolName("repository-" + project);
         config.setConnectionInitSql("SET ROLE " + OWNER_ROLES.get(project));
-        config.setConnectionInitSql("SET ROLE " + OWNER_ROLES.get(project));
-        return new HikariDataSource(config);
+        try {
+            return new HikariDataSource(config);
+        } catch (RuntimeException exception) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "La base de datos de " + LABELS.get(project) + " no está disponible.", exception);
+        }
     }
 
     private static void validatePrimaryKey(Table table, Map<String, Object> key, boolean insert) {
@@ -266,6 +270,10 @@ public class DatabaseManagerService {
     private static String quote(String identifier) { return "\"" + identifier.replace("\"", "\"\"") + "\""; }
     private static ResponseStatusException badRequest(String message) { return new ResponseStatusException(HttpStatus.BAD_REQUEST, message); }
     private static ResponseStatusException databaseError(SQLException exception) {
+        String sqlState = exception.getSQLState();
+        if (sqlState != null && sqlState.startsWith("08")) {
+            return new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "La base de datos no está disponible.");
+        }
         String message = exception.getMessage() == null ? "La base de datos rechazó la operación." : exception.getMessage().split("\\n", 2)[0];
         return new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
     }
