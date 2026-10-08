@@ -1,6 +1,7 @@
 package com.tomas.cuaderno.common.security;
 
 import java.util.Arrays;
+import java.util.Set;
 import org.springframework.context.annotation.*;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -8,10 +9,16 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.*;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 @Configuration @EnableMethodSecurity
 public class SecurityConfig {
+    private static final Set<String> PUBLIC_ENDPOINTS = Set.of(
+            "/api/auth/login", "/api/auth/refresh", "/api/auth/logout",
+            "/api/login", "/api/register", "/api/refresh", "/api/logout",
+            "/api/health", "/api/jwks", "/api/me", "/api/change-password",
+            "/api/actuator/health");
     @Bean SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwt, SecurityProperties props) throws Exception {
         http.csrf(c -> c.disable())
                 .cors(c -> c.configurationSource(corsConfigurationSource(props)))
@@ -19,16 +26,22 @@ public class SecurityConfig {
                 .exceptionHandling(errors -> errors
                         .authenticationEntryPoint((request, response, exception) -> response.sendError(HttpServletResponse.SC_UNAUTHORIZED))
                         .accessDeniedHandler((request, response, exception) -> response.sendError(HttpServletResponse.SC_FORBIDDEN)))
-                .authorizeHttpRequests(a -> a.requestMatchers(
-                                "/api/auth/login", "/api/auth/refresh", "/api/auth/logout",
-                                "/api/login", "/api/register", "/api/refresh", "/api/logout", "/api/health", "/api/jwks",
-                                "/api/me", "/api/change-password", "/api/actuator/health")
-                        .permitAll()
+                .authorizeHttpRequests(a -> a
+                        .requestMatchers(SecurityConfig::isPublicEndpoint).permitAll()
                         .requestMatchers("/api/users/**").hasRole("ADMIN")
                         .anyRequest().authenticated())
                 .addFilterBefore(jwt, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
+    private static boolean isPublicEndpoint(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        String contextPath = request.getContextPath();
+        if (!contextPath.isEmpty() && path.startsWith(contextPath)) {
+            path = path.substring(contextPath.length());
+        }
+        return PUBLIC_ENDPOINTS.contains(path);
+    }
+
     private CorsConfigurationSource corsConfigurationSource(SecurityProperties props) {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(Arrays.stream(props.getAllowedOrigins().split(",")).map(String::trim).filter(s -> !s.isBlank()).toList());
