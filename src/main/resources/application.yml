@@ -46,8 +46,9 @@ cuaderno:
   gemini:
     api-key: ${GEMINI_API_KEY:}
     model: ${GEMINI_MODEL:gemini-flash-lite-latest}
+    markdown-model: ${GEMINI_MARKDOWN_MODEL:gemini-3.1-flash-lite}
     timeout-ms: ${GEMINI_TIMEOUT_MS:10000}
-    markdown-timeout-ms: ${GEMINI_MARKDOWN_TIMEOUT_MS:30000}
+    markdown-timeout-ms: ${GEMINI_MARKDOWN_TIMEOUT_MS:120000}
 repositories:
   github:
     api-base-url: ${REPOSITORY_GITHUB_API_BASE_URL:https://api.github.com}
