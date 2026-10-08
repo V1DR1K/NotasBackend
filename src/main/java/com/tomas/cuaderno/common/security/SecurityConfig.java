@@ -19,8 +19,13 @@ public class SecurityConfig {
                 .exceptionHandling(errors -> errors
                         .authenticationEntryPoint((request, response, exception) -> response.sendError(HttpServletResponse.SC_UNAUTHORIZED))
                         .accessDeniedHandler((request, response, exception) -> response.sendError(HttpServletResponse.SC_FORBIDDEN)))
-                .authorizeHttpRequests(a -> a.requestMatchers("/api/auth/login", "/api/auth/refresh", "/api/auth/logout")
-                        .permitAll().requestMatchers("/api/actuator/health").permitAll().anyRequest().authenticated())
+                .authorizeHttpRequests(a -> a.requestMatchers(
+                                "/api/auth/login", "/api/auth/refresh", "/api/auth/logout",
+                                "/api/login", "/api/register", "/api/refresh", "/api/logout", "/api/health", "/api/jwks",
+                                "/api/me", "/api/change-password", "/api/actuator/health")
+                        .permitAll()
+                        .requestMatchers("/api/users/**").hasRole("ADMIN")
+                        .anyRequest().authenticated())
                 .addFilterBefore(jwt, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

@@ -3,7 +3,6 @@ package com.tomas.cuaderno.auth;
 import com.tomas.cuaderno.common.errors.BadRequestException;
 import java.util.UUID;
 import org.springframework.http.HttpHeaders;
-import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -11,7 +10,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.AuthenticationServiceException;
 
-@Service
 public class CentralAuthClient {
     private static final Logger log = LoggerFactory.getLogger(CentralAuthClient.class);
     private final RestClient client;

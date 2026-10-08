@@ -10,6 +10,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends curl \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --system cuaderno && useradd --system --gid cuaderno --home-dir /nonexistent cuaderno \
+    && groupadd --gid 1999 notes-auth-key && usermod -a -G notes-auth-key cuaderno \
     && mkdir -p /var/lib/cuaderno/files && chown -R cuaderno:cuaderno /var/lib/cuaderno
 WORKDIR /app
 COPY --from=build /build/target/cuaderno-*.jar app.jar

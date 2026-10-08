@@ -17,14 +17,15 @@ public class LocalUserProvisioningService {
     }
 
     @Transactional
-    public User provision(CentralAuthClient.CentralUser centralUser) {
+    public User provision(CentralAuthDtos.CentralUser centralUser) {
         User user = users.findByAuthUserId(centralUser.id()).orElseGet(() -> findUnmappedLegacyUser(centralUser.username()));
         if (user == null) {
             user = new User();
             user.setUsername(centralUser.username());
-            user.setRole(properties.getDefaultRole().trim().toUpperCase());
+            user.setRole(centralUser.role() == null ? properties.getDefaultRole().trim().toUpperCase() : centralUser.role());
         } else {
             user.setUsername(centralUser.username());
+            if (centralUser.role() != null) user.setRole(centralUser.role());
         }
         user.setAuthUserId(centralUser.id());
         user.setPasswordHash(null);

@@ -22,12 +22,14 @@ management:
   endpoints.web.exposure.include: health,info
 cuaderno:
   auth:
-    service-url: ${AUTH_SERVICE_URL:http://localhost:8081}
     public-key-pem: ${AUTH_PUBLIC_KEY_PEM:}
+    private-key-file: ${AUTH_PRIVATE_KEY_FILE:}
     issuer: ${AUTH_JWT_ISSUER:central-auth-service}
-    audience: ${AUTH_JWT_AUDIENCE:}
-    require-audience: ${AUTH_JWT_REQUIRE_AUDIENCE:false}
+    audience: ${AUTH_JWT_AUDIENCE:central-auth}
+    require-audience: ${AUTH_JWT_REQUIRE_AUDIENCE:true}
     client-timeout-ms: ${AUTH_CLIENT_TIMEOUT_MS:3000}
+    access-token-minutes: ${AUTH_ACCESS_TOKEN_MINUTES:15}
+    refresh-token-days: ${AUTH_REFRESH_TOKEN_DAYS:30}
     default-role: ${AUTH_DEFAULT_ROLE:USER}
     secure-cookie: ${JWT_SECURE_COOKIE:true}
   security:

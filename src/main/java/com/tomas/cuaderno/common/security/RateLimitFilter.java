@@ -55,6 +55,10 @@ public class RateLimitFilter extends OncePerRequestFilter {
         if ("/api/auth/login".equals(path)) return new Limit("login", 10);
         if ("/api/auth/refresh".equals(path)) return new Limit("refresh", 20);
         if ("/api/auth/change-password".equals(path)) return new Limit("password", 5);
+        if ("/api/login".equals(path)) return new Limit("login", 10);
+        if ("POST".equalsIgnoreCase(request.getMethod()) && "/api/register".equals(path)) return new Limit("register", 5);
+        if ("/api/refresh".equals(path)) return new Limit("refresh", 20);
+        if ("/api/change-password".equals(path)) return new Limit("password", 5);
         if ("/api/search".equals(path)) return new Limit("search", 60);
         if ("POST".equalsIgnoreCase(request.getMethod()) && path.matches("/api/day-entries/[^/]+/analyze")) return new Limit("analysis", 10);
         if ("POST".equalsIgnoreCase(request.getMethod()) && "/api/files".equals(path)) return new Limit("upload", 20);
