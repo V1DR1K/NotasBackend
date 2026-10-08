@@ -58,7 +58,7 @@ class CryptoInvestmentServiceTest {
         UUID owner = UUID.randomUUID();
         UUID purchaseId = UUID.randomUUID();
         FinanceAccount account = account("1000000.00");
-        CryptoInvestment purchase = investment(owner, "500", "500000.00", "50", "10");
+        CryptoInvestment purchase = investment(purchaseId, owner, "500", "500000.00", "50", "10");
         when(accounts.findActiveForUpdate(owner, "crypto")).thenReturn(Optional.of(account));
         when(investments.findActiveForUpdate(purchaseId, owner)).thenReturn(Optional.of(purchase));
         when(sales.findByInvestmentIdAndDeletedAtIsNull(purchaseId)).thenReturn(List.of());
@@ -80,7 +80,7 @@ class CryptoInvestmentServiceTest {
         UUID purchaseId = UUID.randomUUID();
         FinanceAccount account = account("1000000.00");
         when(accounts.findActiveForUpdate(owner, "crypto")).thenReturn(Optional.of(account));
-        when(investments.findActiveForUpdate(purchaseId, owner)).thenReturn(Optional.of(investment(owner, "500", "500000.00", "50", "10")));
+        when(investments.findActiveForUpdate(purchaseId, owner)).thenReturn(Optional.of(investment(purchaseId, owner, "500", "500000.00", "50", "10")));
         when(sales.findByInvestmentIdAndDeletedAtIsNull(purchaseId)).thenReturn(List.of());
         when(sales.save(any(CryptoSale.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -97,20 +97,20 @@ class CryptoInvestmentServiceTest {
         UUID owner = UUID.randomUUID();
         UUID purchaseId = UUID.randomUUID();
         when(accounts.findActiveForUpdate(owner, "crypto")).thenReturn(Optional.of(account("1000000.00")));
-        when(investments.findActiveForUpdate(purchaseId, owner)).thenReturn(Optional.of(investment(owner, "500", "500000.00", "50", "10")));
+        when(investments.findActiveForUpdate(purchaseId, owner)).thenReturn(Optional.of(investment(purchaseId, owner, "500", "500000.00", "50", "10")));
         when(sales.findByInvestmentIdAndDeletedAtIsNull(purchaseId)).thenReturn(List.of());
 
         assertThatThrownBy(() -> service().sell(owner, purchaseId,
                 new CryptoDtos.SellRequest(LocalDate.now(), new BigDecimal("11"), new BigDecimal("700"), null)))
                 .isInstanceOf(BadRequestException.class)
-                .hasMessage("Sale quantity exceeds the remaining quantity in this purchase");
+                .hasMessage("La cantidad supera las unidades disponibles en esta compra.");
     }
 
     @Test
     void completeLegacyPrice_derivesQuantityFromOriginalUsdAmount() {
         UUID owner = UUID.randomUUID();
         UUID purchaseId = UUID.randomUUID();
-        CryptoInvestment legacy = investment(owner, "500", "500000.00", null, null);
+        CryptoInvestment legacy = investment(purchaseId, owner, "500", "500000.00", null, null);
         when(accounts.findActiveForUpdate(owner, "crypto")).thenReturn(Optional.of(account("500000.00")));
         when(investments.findActiveForUpdate(purchaseId, owner)).thenReturn(Optional.of(legacy));
         when(sales.findByInvestmentIdInOrderByDateDescCreatedAtDesc(List.of(purchaseId))).thenReturn(List.of());
@@ -130,7 +130,7 @@ class CryptoInvestmentServiceTest {
         UUID saleId = UUID.randomUUID();
         FinanceAccount account = account("1100000.00");
         when(accounts.findActiveForUpdate(owner, "crypto")).thenReturn(Optional.of(account));
-        when(investments.findActiveForUpdate(purchaseId, owner)).thenReturn(Optional.of(investment(owner, "500", "500000.00", "50", "10")));
+        when(investments.findActiveForUpdate(purchaseId, owner)).thenReturn(Optional.of(investment(purchaseId, owner, "500", "500000.00", "50", "10")));
         CryptoSale sale = new CryptoSale();
         sale.setProceedsUsd(new BigDecimal("300"));
         sale.setExchangeRateSnapshot(new BigDecimal("1000"));
@@ -150,7 +150,7 @@ class CryptoInvestmentServiceTest {
         UUID owner = UUID.randomUUID();
         UUID purchaseId = UUID.randomUUID();
         when(accounts.findActiveForUpdate(owner, "crypto")).thenReturn(Optional.of(account("1000000.00")));
-        when(investments.findActiveForUpdate(purchaseId, owner)).thenReturn(Optional.of(investment(owner, "500", "500000.00", "50", "10")));
+        when(investments.findActiveForUpdate(purchaseId, owner)).thenReturn(Optional.of(investment(purchaseId, owner, "500", "500000.00", "50", "10")));
         when(sales.findByInvestmentIdAndDeletedAtIsNull(purchaseId)).thenReturn(List.of(new CryptoSale()));
 
         assertThatThrownBy(() -> service().voidPurchase(owner, purchaseId))
@@ -178,8 +178,9 @@ class CryptoInvestmentServiceTest {
         return account;
     }
 
-    private CryptoInvestment investment(UUID owner, String amountUsd, String amountArs, String unitPrice, String quantity) {
+    private CryptoInvestment investment(UUID id, UUID owner, String amountUsd, String amountArs, String unitPrice, String quantity) {
         CryptoInvestment investment = new CryptoInvestment();
+        investment.setId(id);
         investment.setOwnerId(owner);
         investment.setDate(LocalDate.of(2026, 9, 1));
         investment.setAsset(CryptoAsset.BTCUSDT);
