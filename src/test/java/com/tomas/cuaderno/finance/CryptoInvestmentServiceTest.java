@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class CryptoInvestmentServiceTest {
@@ -180,7 +181,7 @@ class CryptoInvestmentServiceTest {
 
     private CryptoInvestment investment(UUID id, UUID owner, String amountUsd, String amountArs, String unitPrice, String quantity) {
         CryptoInvestment investment = new CryptoInvestment();
-        investment.setId(id);
+        ReflectionTestUtils.setField(investment, "id", id);
         investment.setOwnerId(owner);
         investment.setDate(LocalDate.of(2026, 9, 1));
         investment.setAsset(CryptoAsset.BTCUSDT);
