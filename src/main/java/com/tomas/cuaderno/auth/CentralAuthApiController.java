@@ -19,10 +19,11 @@ public class CentralAuthApiController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<TokenResponse> register(@Valid @RequestBody RegisterRequest body) {
-        TokenResponse tokens = auth.register(body.username(), body.password());
-        return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED)
-                .cacheControl(CacheControl.noStore()).body(tokens);
+    public ResponseEntity<RegistrationResponse> register(@Valid @RequestBody RegisterRequest body) {
+        String clientApp = body.clientApp() == null || body.clientApp().isBlank() ? "whatplan" : body.clientApp();
+        RegistrationResponse result = auth.register(body.username(), body.password(), clientApp);
+        return ResponseEntity.status(org.springframework.http.HttpStatus.ACCEPTED)
+                .cacheControl(CacheControl.noStore()).body(result);
     }
 
     @PostMapping("/login")

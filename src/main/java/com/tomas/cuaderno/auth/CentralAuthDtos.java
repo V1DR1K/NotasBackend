@@ -15,7 +15,8 @@ public final class CentralAuthDtos {
                               @NotBlank @Size(max = 128) String password,
                               @NotBlank @Size(max = 20) String clientApp) {}
     public record RegisterRequest(@NotBlank @Size(min = 3, max = 80) String username,
-                                  @NotBlank @Size(min = 10, max = 128) String password) {}
+                                  @NotBlank @Size(min = 10, max = 128) String password,
+                                  @Size(max = 20) String clientApp) {}
     public record RefreshRequest(@NotBlank @Size(max = 4096) String refreshToken,
                                  @NotBlank @Size(max = 20) String clientApp) {}
     public record LogoutRequest(@NotBlank @Size(max = 4096) String refreshToken,
@@ -27,12 +28,16 @@ public final class CentralAuthDtos {
                               Instant lastLogin, boolean mustChangePassword, String role) {}
     public record TokenResponse(String accessToken, String refreshToken, String tokenType,
                                 long expiresIn, CentralUser user) {}
+    public record RegistrationResponse(UUID id, String username, String requestedApp,
+                                       CentralAppAccessStatus accessStatus, String message) {}
     public record MeResponse(UUID id, String username, boolean mustChangePassword, String role) {}
     public record MessageResponse(String message) {}
 
-    public record AppAccessRequest(@NotNull Boolean enabled, @NotBlank @Size(max = 20) String role) {}
+    public record AppAccessRequest(@NotNull Boolean enabled, @NotBlank @Size(max = 20) String role,
+                                   CentralAppAccessStatus status) {}
     public record UpdateApplicationsRequest(@NotNull Map<String, AppAccessRequest> applications) {}
-    public record AppAccessResponse(String appCode, String role, boolean enabled) {}
+    public record AppAccessResponse(String appCode, String role, boolean enabled,
+                                    CentralAppAccessStatus status) {}
     public record UserAdminResponse(UUID id, String username, String status, Instant created,
                                     Instant lastLogin, boolean mustChangePassword,
                                     List<AppAccessResponse> applications) {}

@@ -2,6 +2,8 @@ package com.tomas.cuaderno.auth;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -29,20 +31,29 @@ public class CentralUserAppAccess {
     @Column(nullable = false)
     private boolean enabled;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "access_status", nullable = false, length = 20)
+    private CentralAppAccessStatus status = CentralAppAccessStatus.NONE;
+
     protected CentralUserAppAccess() {}
 
-    public static CentralUserAppAccess create(UUID userId, String appCode, String role, boolean enabled) {
+    public static CentralUserAppAccess create(UUID userId, String appCode, String role, CentralAppAccessStatus status) {
         CentralUserAppAccess access = new CentralUserAppAccess();
         access.userId = userId;
         access.appCode = appCode;
         access.role = role;
-        access.enabled = enabled;
+        access.update(role, status);
         return access;
     }
 
-    public void update(String role, boolean enabled) { this.role = role; this.enabled = enabled; }
+    public void update(String role, CentralAppAccessStatus status) {
+        this.role = role;
+        this.status = status;
+        this.enabled = status.grantsAccess();
+    }
     public UUID getUserId() { return userId; }
     public String getAppCode() { return appCode; }
     public String getRole() { return role; }
     public boolean isEnabled() { return enabled; }
+    public CentralAppAccessStatus getStatus() { return status; }
 }

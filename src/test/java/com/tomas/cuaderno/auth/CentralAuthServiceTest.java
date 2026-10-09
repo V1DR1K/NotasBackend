@@ -35,22 +35,16 @@ class CentralAuthServiceTest {
     }
 
     @Test
-    void register_normalizesUsernameAndGrantsOnlyWhatPlanAccess() {
+    void register_normalizesUsernameAndLeavesRequestedAppPendingWithoutSession() {
         when(users.existsByUsernameIgnoreCase("new.user")).thenReturn(false);
         when(passwordEncoder.encode("a-long-password")).thenReturn("{bcrypt}encoded");
         when(users.saveAndFlush(any(CentralAuthUser.class))).thenAnswer(call -> call.getArgument(0));
         when(appAccess.save(any(CentralUserAppAccess.class))).thenAnswer(call -> call.getArgument(0));
-        when(jwtService.issueAccessToken(any(CentralAuthUser.class), org.mockito.ArgumentMatchers.eq("whatplan"),
-                org.mockito.ArgumentMatchers.eq("USER"))).thenReturn("access-token");
-        when(jwtService.expiresInSeconds()).thenReturn(900L);
-        when(properties.getRefreshTokenDays()).thenReturn(30);
+        var result = auth.register(" New.User ", "a-long-password", "WHATPLAN");
 
-        var result = auth.register(" New.User ", "a-long-password");
-
-        assertThat(result.accessToken()).isEqualTo("access-token");
-        assertThat(result.user().username()).isEqualTo("new.user");
-        assertThat(result.user().role()).isEqualTo("USER");
-        assertThat(result.user().status()).isEqualTo("ACTIVE");
+        assertThat(result.username()).isEqualTo("new.user");
+        assertThat(result.requestedApp()).isEqualTo("whatplan");
+        assertThat(result.accessStatus()).isEqualTo(CentralAppAccessStatus.PENDING);
 
         ArgumentCaptor<CentralAuthUser> user = ArgumentCaptor.forClass(CentralAuthUser.class);
         verify(users).saveAndFlush(user.capture());
@@ -59,17 +53,25 @@ class CentralAuthServiceTest {
         assertThat(user.getValue().isMustChangePassword()).isFalse();
 
         ArgumentCaptor<CentralUserAppAccess> grant = ArgumentCaptor.forClass(CentralUserAppAccess.class);
-        verify(appAccess).save(grant.capture());
-        assertThat(grant.getValue().getAppCode()).isEqualTo("whatplan");
-        assertThat(grant.getValue().getRole()).isEqualTo("USER");
-        assertThat(grant.getValue().isEnabled()).isTrue();
+        verify(appAccess, org.mockito.Mockito.times(3)).save(grant.capture());
+        assertThat(grant.getAllValues()).filteredOn(value -> "whatplan".equals(value.getAppCode()))
+                .singleElement().satisfies(value -> {
+                    assertThat(value.getRole()).isEqualTo("USER");
+                    assertThat(value.getStatus()).isEqualTo(CentralAppAccessStatus.PENDING);
+                    assertThat(value.isEnabled()).isFalse();
+                });
+        assertThat(grant.getAllValues()).filteredOn(value -> !"whatplan".equals(value.getAppCode()))
+                .allSatisfy(value -> {
+                    assertThat(value.getStatus()).isEqualTo(CentralAppAccessStatus.NONE);
+                    assertThat(value.isEnabled()).isFalse();
+                });
     }
 
     @Test
     void register_duplicateUsernameReturnsGenericFailure() {
         when(users.existsByUsernameIgnoreCase("taken")).thenReturn(true);
 
-        assertThatThrownBy(() -> auth.register("TAKEN", "a-long-password"))
+        assertThatThrownBy(() -> auth.register("TAKEN", "a-long-password", "whatplan"))
                 .isInstanceOf(BadRequestException.class)
                 .hasMessage("No se pudo completar el registro.");
 
@@ -83,7 +85,7 @@ class CentralAuthServiceTest {
         when(users.saveAndFlush(any(CentralAuthUser.class)))
                 .thenThrow(new DataIntegrityViolationException("username unique constraint"));
 
-        assertThatThrownBy(() -> auth.register("new.user", "a-long-password"))
+        assertThatThrownBy(() -> auth.register("new.user", "a-long-password", "whatplan"))
                 .isInstanceOf(BadRequestException.class)
                 .hasMessage("No se pudo completar el registro.");
 

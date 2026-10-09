@@ -2,6 +2,7 @@ package com.tomas.cuaderno.auth;
 
 import com.tomas.cuaderno.auth.CentralAuthDtos.CentralUser;
 import com.tomas.cuaderno.auth.CentralAuthDtos.MeResponse;
+import com.tomas.cuaderno.auth.CentralAuthDtos.RegistrationResponse;
 import com.tomas.cuaderno.auth.CentralAuthDtos.TokenResponse;
 import com.tomas.cuaderno.common.errors.BadRequestException;
 import com.tomas.cuaderno.common.security.JwtService;
@@ -60,7 +61,8 @@ public class CentralAuthService {
     }
 
     @Transactional
-    public TokenResponse register(String requestedUsername, String password) {
+    public RegistrationResponse register(String requestedUsername, String password, String requestedApp) {
+        String appCode = requireApplication(requestedApp);
         String username = normalizeRegistrationUsername(requestedUsername);
         if (users.existsByUsernameIgnoreCase(username)) throw registrationFailed();
 
@@ -70,8 +72,14 @@ public class CentralAuthService {
         } catch (DataIntegrityViolationException duplicateUsername) {
             throw registrationFailed();
         }
-        CentralUserAppAccess access = appAccess.save(CentralUserAppAccess.create(user.getId(), "whatplan", "USER", true));
-        return issue(user, access);
+        for (String app : APPLICATIONS) {
+            CentralAppAccessStatus status = app.equals(appCode)
+                    ? CentralAppAccessStatus.PENDING : CentralAppAccessStatus.NONE;
+            appAccess.save(CentralUserAppAccess.create(user.getId(), app, "USER", status));
+        }
+        return new RegistrationResponse(user.getId(), user.getUsername(), appCode,
+                CentralAppAccessStatus.PENDING,
+                "Solicitud enviada. Vas a poder ingresar cuando aprueben el acceso.");
     }
 
     @Transactional
@@ -144,9 +152,16 @@ public class CentralAuthService {
     }
 
     private CentralUserAppAccess requireAccess(CentralAuthUser user, String appCode) {
-        return appAccess.findByUserIdAndAppCode(user.getId(), appCode)
-                .filter(CentralUserAppAccess::isEnabled)
+        CentralUserAppAccess access = appAccess.findByUserIdAndAppCode(user.getId(), appCode)
                 .orElseThrow(() -> new AccessDeniedException("Esta cuenta no tiene acceso a " + appCode + "."));
+        if (access.getStatus() == CentralAppAccessStatus.PENDING) {
+            throw new AccessDeniedException("Tu solicitud de acceso a " + appCode + " está pendiente de aprobación.");
+        }
+        if (access.getStatus() == CentralAppAccessStatus.REJECTED) {
+            throw new AccessDeniedException("Tu solicitud de acceso a " + appCode + " fue rechazada.");
+        }
+        if (!access.isEnabled()) throw new AccessDeniedException("Esta cuenta no tiene acceso a " + appCode + ".");
+        return access;
     }
 
     private TokenResponse issue(CentralAuthUser user, CentralUserAppAccess access) {

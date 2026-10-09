@@ -62,7 +62,9 @@ public class CentralUserAdministrationService {
         if (users.existsByUsernameIgnoreCase(username)) throw new BadRequestException("Ese nombre de usuario ya está en uso.");
         CentralAuthUser user = users.save(CentralAuthUser.create(username,
                 passwordEncoder.encode(request.password()), request.mustChangePassword() == null || request.mustChangePassword()));
-        for (String app : APPLICATIONS) appAccess.save(CentralUserAppAccess.create(user.getId(), app, "USER", false));
+        for (String app : APPLICATIONS) {
+            appAccess.save(CentralUserAppAccess.create(user.getId(), app, "USER", CentralAppAccessStatus.NONE));
+        }
         return response(user, appAccess.findAllByUserIdIn(List.of(user.getId())));
     }
 
@@ -99,15 +101,17 @@ public class CentralUserAdministrationService {
         Map<String, String> roles = updates.entrySet().stream().collect(Collectors.toMap(
                 Map.Entry::getKey, entry -> normalizeRole(entry.getValue())));
         AppAccessRequest notes = updates.get("notes");
-        ensureNotLastNotesAdmin(user.getId(), Boolean.TRUE.equals(notes.enabled()), roles.get("notes"));
+        CentralAppAccessStatus notesStatus = normalizeStatus(notes);
+        ensureNotLastNotesAdmin(user.getId(), notesStatus.grantsAccess(), roles.get("notes"));
 
         for (String app : APPLICATIONS) {
             AppAccessRequest update = updates.get(app);
             if (update == null || update.enabled() == null) throw new BadRequestException("El acceso de cada aplicación debe estar definido.");
             String role = roles.get(app);
+            CentralAppAccessStatus status = normalizeStatus(update);
             CentralUserAppAccess grant = appAccess.findByUserIdAndAppCode(user.getId(), app)
-                    .orElseGet(() -> CentralUserAppAccess.create(user.getId(), app, role, update.enabled()));
-            grant.update(role, update.enabled());
+                    .orElseGet(() -> CentralUserAppAccess.create(user.getId(), app, role, status));
+            grant.update(role, status);
             appAccess.save(grant);
             if ("notes".equals(app)) {
                 notesUsers.findByAuthUserId(user.getId()).ifPresent(local -> {
@@ -153,6 +157,19 @@ public class CentralUserAdministrationService {
         return role;
     }
 
+    private CentralAppAccessStatus normalizeStatus(AppAccessRequest request) {
+        if (request == null || request.enabled() == null) {
+            throw new BadRequestException("El acceso de cada aplicación debe estar definido.");
+        }
+        CentralAppAccessStatus status = request.status() == null
+                ? (request.enabled() ? CentralAppAccessStatus.APPROVED : CentralAppAccessStatus.NONE)
+                : request.status();
+        if (request.enabled() != status.grantsAccess()) {
+            throw new BadRequestException("El estado de acceso no coincide con el permiso habilitado.");
+        }
+        return status;
+    }
+
     private static String normalizeUsername(String value) {
         String username = value == null ? "" : value.trim().toLowerCase(Locale.ROOT);
         if (!username.matches("[a-z0-9][a-z0-9._-]{2,79}")) {
@@ -168,7 +185,8 @@ public class CentralUserAdministrationService {
         for (String app : APPLICATIONS) {
             CentralUserAppAccess grant = byApp.get(app);
             applications.add(new AppAccessResponse(app, grant == null ? "USER" : grant.getRole(),
-                    grant != null && grant.isEnabled()));
+                    grant != null && grant.isEnabled(),
+                    grant == null ? CentralAppAccessStatus.NONE : grant.getStatus()));
         }
         return new UserAdminResponse(user.getId(), user.getUsername(), user.getStatus(), user.getCreatedAt(),
                 user.getLastLoginAt(), user.isMustChangePassword(), applications);
