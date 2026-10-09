@@ -25,6 +25,6 @@ public interface CryptoInvestmentRepository extends JpaRepository<CryptoInvestme
     Optional<CryptoInvestment> findActiveForUpdate(@Param("id") UUID id, @Param("owner") UUID ownerId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("select i from CryptoInvestment i where i.ownerId = :owner and i.asset = :asset and i.deletedAt is null order by i.date asc, i.createdAt asc")
-    List<CryptoInvestment> findActiveForUpdate(@Param("owner") UUID ownerId, @Param("asset") CryptoAsset asset);
+    @Query("select i from CryptoInvestment i where i.ownerId = :owner and i.assetCode = :assetCode and i.deletedAt is null order by i.date asc, i.createdAt asc")
+    List<CryptoInvestment> findActiveForUpdate(@Param("owner") UUID ownerId, @Param("assetCode") String assetCode);
 }

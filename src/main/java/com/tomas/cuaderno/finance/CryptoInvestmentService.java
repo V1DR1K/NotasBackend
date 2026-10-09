@@ -53,7 +53,7 @@ public class CryptoInvestmentService {
         BigDecimal investedArs = BigDecimal.ZERO;
         BigDecimal investedUsd = BigDecimal.ZERO;
         BigDecimal realizedProfitUsd = BigDecimal.ZERO;
-        Map<CryptoAsset, PositionTotals> byAsset = new HashMap<>();
+        Map<String, PositionTotals> byAsset = new HashMap<>();
         for (CryptoInvestment item : activeInvestments) {
             List<CryptoSale> itemSales = salesByInvestment.getOrDefault(item.getId(), List.of());
             BigDecimal remainingArs = remainingBasisArs(item, itemSales);
@@ -61,7 +61,7 @@ public class CryptoInvestmentService {
             investedArs = investedArs.add(remainingArs);
             investedUsd = investedUsd.add(remainingUsd);
             realizedProfitUsd = realizedProfitUsd.add(activeProfitUsd(itemSales));
-            PositionTotals totals = byAsset.computeIfAbsent(item.getAsset(), ignored -> new PositionTotals());
+            PositionTotals totals = byAsset.computeIfAbsent(item.getAssetCode(), ignored -> new PositionTotals());
             totals.investedArs = totals.investedArs.add(remainingArs);
             totals.investedUsd = totals.investedUsd.add(remainingUsd);
             if (remainingUsd.signum() > 0) totals.purchases++;
@@ -79,7 +79,7 @@ public class CryptoInvestmentService {
         List<CryptoDtos.Position> positions = byAsset.entrySet().stream()
                 .filter(entry -> entry.getValue().investedUsd.signum() > 0)
                 .sorted((left, right) -> right.getValue().investedUsd.compareTo(left.getValue().investedUsd))
-                .map(entry -> new CryptoDtos.Position(entry.getKey().name(), entry.getKey().label(),
+                .map(entry -> new CryptoDtos.Position(entry.getKey(), CryptoAsset.label(entry.getKey()),
                         usd(entry.getValue().investedUsd), money(entry.getValue().investedArs),
                         entry.getValue().quantityKnown ? quantity(entry.getValue().quantity) : null,
                         entry.getValue().purchases))
@@ -97,7 +97,7 @@ public class CryptoInvestmentService {
 
     @Transactional
     public CryptoDtos.InvestmentResponse create(UUID owner, CryptoDtos.CreateRequest request) {
-        CryptoAsset asset = CryptoAsset.parse(request.assetCode());
+        String assetCode = CryptoAsset.parse(request.assetCode());
         FinanceAccount account = cryptoAccount(owner, true);
         BigDecimal legacyRate = account.getBalanceUsd() == null ? rates.usd(owner).average() : BigDecimal.ONE;
         BigDecimal amountUsd = usd(request.amountUsd());
@@ -119,7 +119,7 @@ public class CryptoInvestmentService {
         CryptoInvestment investment = new CryptoInvestment();
         investment.setOwnerId(owner);
         investment.setDate(request.date());
-        investment.setAsset(asset);
+        investment.setAssetCode(assetCode);
         investment.setAmountUsd(amountUsd);
         investment.setAmountArs(amountArs);
         investment.setExchangeRateSnapshot(bookRate);
@@ -156,9 +156,9 @@ public class CryptoInvestmentService {
 
     @Transactional
     public List<CryptoDtos.SaleResponse> sellPosition(UUID owner, String assetCode, CryptoDtos.SellPositionRequest request) {
-        CryptoAsset asset = CryptoAsset.parse(assetCode);
+        String normalizedAssetCode = CryptoAsset.parse(assetCode);
         FinanceAccount account = cryptoAccount(owner, true);
-        List<CryptoInvestment> rows = investments.findActiveForUpdate(owner, asset);
+        List<CryptoInvestment> rows = investments.findActiveForUpdate(owner, normalizedAssetCode);
         if (rows.isEmpty()) throw new BadRequestException("No hay posiciones abiertas para vender de esta moneda.");
 
         Map<UUID, List<CryptoSale>> salesByInvestment = salesFor(rows);
@@ -300,7 +300,7 @@ public class CryptoInvestmentService {
         BigDecimal purchases = BigDecimal.ZERO, proceeds = BigDecimal.ZERO, cost = BigDecimal.ZERO;
         long count = 0;
         Map<LocalDate, BigDecimal[]> daily = new TreeMap<>();
-        Map<CryptoAsset, BigDecimal[]> byAsset = new TreeMap<>();
+        Map<String, BigDecimal[]> byAsset = new TreeMap<>();
         for (CryptoInvestment item : rows) {
             purchases = purchases.add(item.getAmountUsd());
             for (CryptoSale sale : saleRows.getOrDefault(item.getId(), List.of())) {
@@ -308,7 +308,7 @@ public class CryptoInvestmentService {
                 count++; proceeds = proceeds.add(sale.getProceedsUsd()); cost = cost.add(sale.getCostBasisUsd());
                 BigDecimal[] day = daily.computeIfAbsent(sale.getDate(), ignored -> new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO});
                 day[0] = day[0].add(sale.getProceedsUsd()); day[1] = day[1].add(sale.getCostBasisUsd());
-                BigDecimal[] asset = byAsset.computeIfAbsent(item.getAsset(), ignored -> new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO});
+                BigDecimal[] asset = byAsset.computeIfAbsent(item.getAssetCode(), ignored -> new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO});
                 asset[0] = asset[0].add(sale.getProceedsUsd()); asset[1] = asset[1].add(sale.getCostBasisUsd());
             }
         }
@@ -318,7 +318,7 @@ public class CryptoInvestmentService {
             BigDecimal profit = entry.getValue()[0].subtract(entry.getValue()[1]); cumulative = cumulative.add(profit);
             evolution.add(new CryptoDtos.ProfitDay(entry.getKey(), usd(entry.getValue()[0]), usd(entry.getValue()[1]), usd(profit), usd(cumulative)));
         }
-        List<CryptoDtos.AssetPerformance> assets = byAsset.entrySet().stream().map(e -> new CryptoDtos.AssetPerformance(e.getKey().name(), e.getKey().label(),
+        List<CryptoDtos.AssetPerformance> assets = byAsset.entrySet().stream().map(e -> new CryptoDtos.AssetPerformance(e.getKey(), CryptoAsset.label(e.getKey()),
                 usd(e.getValue()[0].subtract(e.getValue()[1])), usd(e.getValue()[0]), usd(e.getValue()[1]))).toList();
         return new CryptoDtos.Performance(usd(capital), usd(purchases), usd(proceeds), usd(cost),
                 cost.signum() == 0 ? null : proceeds.subtract(cost).multiply(new BigDecimal("100")).divide(cost, 4, ROUNDING), count, evolution, assets);
@@ -342,7 +342,7 @@ public class CryptoInvestmentService {
         BigDecimal remainingQty = investment.getQuantity() == null || investment.getDeletedAt() != null
                 ? null : remainingQuantity(investment, itemSales.stream().filter(sale -> sale.getDeletedAt() == null).toList());
         return new CryptoDtos.InvestmentResponse(
-                investment.getId(), investment.getDate(), investment.getAsset().name(), investment.getAsset().label(),
+                investment.getId(), investment.getDate(), investment.getAssetCode(), CryptoAsset.label(investment.getAssetCode()),
                 new CryptoDtos.MoneyResponse(investment.getAmountArs(), investment.getAmountUsd(), investment.getExchangeRateSnapshot()),
                 investment.getUnitPriceUsd(), investment.getQuantity(), remainingQty,
                 new CryptoDtos.MoneyResponse(

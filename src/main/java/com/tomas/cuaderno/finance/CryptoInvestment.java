@@ -3,8 +3,6 @@ package com.tomas.cuaderno.finance;
 import com.tomas.cuaderno.common.audit.AuditableEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -15,9 +13,8 @@ public class CryptoInvestment extends AuditableEntity {
     @Column(name = "date", nullable = false)
     private LocalDate date;
 
-    @Enumerated(EnumType.STRING)
     @Column(name = "asset_code", nullable = false, length = 20)
-    private CryptoAsset asset;
+    private String assetCode;
 
     @Column(name = "amount_usd", nullable = false, precision = 19, scale = 8)
     private BigDecimal amountUsd;
@@ -42,8 +39,8 @@ public class CryptoInvestment extends AuditableEntity {
 
     public LocalDate getDate() { return date; }
     public void setDate(LocalDate value) { date = value; }
-    public CryptoAsset getAsset() { return asset; }
-    public void setAsset(CryptoAsset value) { asset = value; }
+    public String getAssetCode() { return assetCode; }
+    public void setAssetCode(String value) { assetCode = value; }
     public BigDecimal getAmountUsd() { return amountUsd; }
     public void setAmountUsd(BigDecimal value) { amountUsd = value; }
     public BigDecimal getAmountArs() { return amountArs; }

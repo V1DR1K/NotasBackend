@@ -184,7 +184,7 @@ class CryptoInvestmentServiceTest {
         ReflectionTestUtils.setField(investment, "id", id);
         investment.setOwnerId(owner);
         investment.setDate(LocalDate.of(2026, 9, 1));
-        investment.setAsset(CryptoAsset.BTCUSDT);
+        investment.setAssetCode("BTCUSDT");
         investment.setAmountUsd(new BigDecimal(amountUsd));
         investment.setAmountArs(new BigDecimal(amountArs));
         investment.setExchangeRateSnapshot(new BigDecimal("1000"));
